@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVEMENT, flowSpeed, gravityForVelocity, flowRank } from '../src/movement.js';
+import { MOVEMENT, flowSpeed, gravityForVelocity, flowRank, gameplayCameraTarget } from '../src/movement.js';
 
 test('movement tuning favors responsive control and expressive momentum', () => {
   assert.ok(MOVEMENT.groundAcceleration > MOVEMENT.groundFriction);
@@ -28,4 +28,11 @@ test('flow ranks communicate three readable states', () => {
   assert.equal(flowRank(0), 'BUILD FLOW');
   assert.equal(flowRank(50), 'ON A ROLL');
   assert.equal(flowRank(85), 'HIGH TIDE');
+});
+
+test('normal gameplay camera position never depends on facing or velocity', () => {
+  assert.equal(gameplayCameraTarget(800, 4000), 450);
+  assert.equal(gameplayCameraTarget(800, 4000), gameplayCameraTarget(800, 4000));
+  assert.equal(gameplayCameraTarget(100, 4000), 0);
+  assert.equal(gameplayCameraTarget(3900, 4000), 3040);
 });

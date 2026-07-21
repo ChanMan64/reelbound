@@ -1,6 +1,7 @@
 import { LEVELS, TILE, LURES } from './levels.js?v=flow1';
 import { CAMPAIGN } from './campaign.js?v=flow1';
-import { MOVEMENT, flowSpeed, gravityForVelocity, flowRank } from './movement.js?v=flow1';
+import { MOVEMENT, flowSpeed, gravityForVelocity, flowRank, gameplayCameraTarget } from './movement.js?v=objects1';
+import { choosePlatformCrop, platformDetailFractions, platformMaterialSeed } from './platform-style.js?v=objects1';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -909,9 +910,8 @@ function update(dt) {
   }
 
   if (overlaps(player, { x: level.goal[0] * TILE, y: level.goal[1] * TILE, w: 50, h: 72 })) completeLevel();
-  const lookAhead = Math.max(-110, Math.min(150, player.vx * .48));
-  const cameraTarget = Math.max(0, Math.min(level.width * TILE - 960, player.x - 340 + lookAhead));
-  camera = approach(camera, cameraTarget, (980 + Math.abs(player.vx) * 1.35) * dt);
+  const cameraTarget = gameplayCameraTarget(player.x, level.width * TILE);
+  camera = approach(camera, cameraTarget, 980 * dt);
 
   for (const particle of particles) {
     particle.x += particle.vx * dt;
@@ -986,6 +986,20 @@ function closeTackleBox() {
 
 function screenX(worldX) { return Math.round(worldX - camera); }
 
+function drawPlatformNineSlice(crop, sourceY, sourceHeight, x, y, width, height) {
+  if (width <= 44) {
+    ctx.drawImage(images.environment, crop.x, sourceY, crop.w, sourceHeight, x, y, width, height);
+    return;
+  }
+  const sourceCap = Math.min(52, Math.floor(crop.w * .24));
+  const destinationCap = Math.min(42, Math.max(14, Math.floor(width * .2)));
+  const sourceCenterWidth = crop.w - sourceCap * 2;
+  const destinationCenterWidth = Math.max(1, width - destinationCap * 2);
+  ctx.drawImage(images.environment, crop.x, sourceY, sourceCap, sourceHeight, x, y, destinationCap + 1, height);
+  ctx.drawImage(images.environment, crop.x + sourceCap, sourceY, sourceCenterWidth, sourceHeight, x + destinationCap, y, destinationCenterWidth, height);
+  ctx.drawImage(images.environment, crop.x + crop.w - sourceCap, sourceY, sourceCap, sourceHeight, x + width - destinationCap - 1, y, destinationCap + 1, height);
+}
+
 function drawPlatform(platform, moving = false) {
   const x = screenX(platform.x);
   const y = Math.round(platform.y);
@@ -996,66 +1010,58 @@ function drawPlatform(platform, moving = false) {
     boats: [72, 146], current: [260, 146], wind: [451, 145], ice: [671, 128], star: [850, 134],
   };
   const [sourceY, sourceHeight] = atlasRows[theme] || atlasRows.star;
-  const variants = [{ x: 76, w: 202 }, { x: 334, w: 212 }, { x: 603, w: 161 }, { x: 826, w: 171 }];
-  const tileX = Math.round(platform.x / TILE);
-  const tileY = Math.round(platform.y / TILE);
-  const materialSeed = Math.abs(tileX * 31 + tileY * 17 + Math.round(w / TILE) * 13 + levelIndex * 7);
-  const segmentWidth = moving ? w : Math.min(88, w);
+  const materialSeed = platformMaterialSeed(platform, levelIndex, TILE);
+  const crop = choosePlatformCrop(w, materialSeed, moving);
   const visualHeight = moving ? Math.max(42, h + 14) : Math.max(48, h + 12);
   ctx.save();
   ctx.beginPath();
   ctx.rect(x - 5, y - 3, w + 10, Math.max(h + 22, visualHeight));
   ctx.clip();
-  if (moving) {
-    ctx.drawImage(images.environment, 1060, sourceY, 390, sourceHeight, x - 4, y - 2, w + 8, visualHeight);
-  } else {
-    let segment = 0;
-    for (let offset = 0; offset < w; offset += segmentWidth - 1, segment++) {
-      const drawWidth = Math.min(segmentWidth, w - offset + 1);
-      const variant = variants[(materialSeed + segment) % variants.length];
-      ctx.drawImage(images.environment, variant.x, sourceY, variant.w, sourceHeight, x + offset, y - 2, drawWidth, visualHeight);
-    }
-  }
+  drawPlatformNineSlice(crop, sourceY, sourceHeight, x - 4, y - 2, w + 8, visualHeight);
   ctx.restore();
   drawPlatformSurfaceDetails(theme, x, y, w, materialSeed, moving);
 }
 
 function drawPlatformSurfaceDetails(theme, x, y, w, seed, moving) {
+  const detailX = platformDetailFractions(w, seed).map(fraction => x + fraction * w);
   ctx.save();
   if (theme === 'boats') {
     ctx.fillStyle = '#ffe08a';
-    for (let px = 15 + seed % 18; px < w; px += 61) {
-      ctx.fillRect(x + px, y + 3, 3, 3);
-      ctx.fillStyle = '#56311f'; ctx.fillRect(x + px + 1, y + 4, 1, 1); ctx.fillStyle = '#ffe08a';
+    for (const px of detailX) {
+      ctx.globalAlpha = .6 + Math.sin(elapsed * 2.2 + px) * .22;
+      ctx.fillRect(px - 2, y + 3, 4, 2);
     }
+    ctx.globalAlpha = 1;
     if (moving) { ctx.strokeStyle = '#d6a65d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 8, y + 12); ctx.quadraticCurveTo(x + w / 2, y + 22, x + w - 8, y + 12); ctx.stroke(); }
   } else if (theme === 'current') {
-    for (let px = 12 + seed % 22; px < w; px += 42) {
+    for (const px of detailX) {
       const sway = Math.sin(elapsed * 2 + px * .07) * 3;
-      ctx.strokeStyle = '#62d99b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + px, y + 4); ctx.quadraticCurveTo(x + px + sway, y - 3, x + px + sway * .5, y - 9); ctx.stroke();
-      ctx.fillStyle = '#b9fff0aa'; ctx.fillRect(x + px + 7, y - 5 - ((elapsed * 18 + px) % 8), 2, 2);
+      ctx.strokeStyle = '#62d99b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px, y + 4); ctx.quadraticCurveTo(px + sway, y - 3, px + sway * .5, y - 9); ctx.stroke();
+      ctx.fillStyle = '#b9fff0aa'; ctx.fillRect(px + 7, y - 5 - ((elapsed * 18 + px) % 8), 2, 2);
     }
   } else if (theme === 'wind') {
     ctx.strokeStyle = '#d6e26f'; ctx.lineWidth = 2;
-    for (let px = 5 + seed % 17; px < w; px += 25) {
+    for (const px of detailX) {
       const sway = Math.sin(elapsed * 3 + px) * 2;
-      ctx.beginPath(); ctx.moveTo(x + px, y + 2); ctx.lineTo(x + px + sway, y - 6 - (px % 5)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px, y + 2); ctx.lineTo(px + sway, y - 7 - (Math.floor(px) % 5)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px + 4, y + 2); ctx.lineTo(px + 5 + sway, y - 4); ctx.stroke();
     }
   } else if (theme === 'ice') {
     ctx.fillStyle = '#ffffffcc';
-    for (let px = 11 + seed % 27; px < w; px += 53) {
+    for (const px of detailX) {
       const glow = .45 + Math.sin(elapsed * 3.2 + px) * .3;
-      ctx.globalAlpha = glow; ctx.fillRect(x + px, y + 2, 5, 1); ctx.fillRect(x + px + 2, y, 1, 5);
+      ctx.globalAlpha = glow; ctx.fillRect(px - 2, y + 2, 5, 1); ctx.fillRect(px, y, 1, 5);
     }
   } else {
     const starColors = ['#7ee4df', '#d4b5ff', '#ffd27a'];
-    for (let px = 10 + seed % 21, index = 0; px < w; px += 37, index++) {
+    detailX.forEach((px, index) => {
       ctx.globalAlpha = .5 + Math.sin(elapsed * 4 + px) * .38;
       ctx.fillStyle = starColors[(seed + index) % starColors.length];
-      ctx.fillRect(x + px, y + 10 + (px % 19), 3, 3);
-      ctx.fillRect(x + px + 1, y + 7 + (px % 19), 1, 9);
-      ctx.fillRect(x + px - 2, y + 11 + (px % 19), 7, 1);
-    }
+      const starY = y + 10 + (Math.floor(px) % 19);
+      ctx.fillRect(px - 1, starY, 3, 3);
+      ctx.fillRect(px, starY - 3, 1, 9);
+      ctx.fillRect(px - 3, starY + 1, 7, 1);
+    });
   }
   ctx.restore();
 }
