@@ -1,5 +1,6 @@
-import { LEVELS, TILE, LURES } from './levels.js';
-import { CAMPAIGN } from './campaign.js';
+import { LEVELS, TILE, LURES } from './levels.js?v=flow1';
+import { CAMPAIGN } from './campaign.js?v=flow1';
+import { MOVEMENT, flowSpeed, gravityForVelocity, flowRank } from './movement.js?v=flow1';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -47,7 +48,11 @@ let soundEnabled = true;
 let musicTimer = 0;
 let musicStep = 0;
 let particles = [];
+let afterimages = [];
+let floatingTexts = [];
 let enemyProjectiles = [];
+let screenShake = 0;
+let hitStop = 0;
 let selectedWorld = save.campaign.selectedWorld || 0;
 let activeWorld = selectedWorld;
 
@@ -111,15 +116,38 @@ class AudioSystem {
     oscillator.start(start);
     oscillator.stop(start + 0.65);
   }
+  noise(duration = 0.08, volume = 0.018, frequency = 950, delay = 0) {
+    if (!soundEnabled || !this.context) return;
+    const sampleCount = Math.max(1, Math.floor(this.context.sampleRate * duration));
+    const buffer = this.context.createBuffer(1, sampleCount, this.context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let index = 0; index < sampleCount; index++) data[index] = (Math.random() * 2 - 1) * (1 - index / sampleCount);
+    const source = this.context.createBufferSource();
+    const filter = this.context.createBiquadFilter();
+    const gain = this.context.createGain();
+    const start = this.context.currentTime + delay;
+    source.buffer = buffer; filter.type = 'lowpass'; filter.frequency.value = frequency;
+    gain.gain.setValueAtTime(volume, start); gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+    source.connect(filter).connect(gain).connect(this.context.destination);
+    source.start(start); source.stop(start + duration);
+  }
   effect(name) {
     this.start();
     const sounds = {
       jump: [430, 0.09], land: [120, 0.05], rod: [250, 0.06], hit: [105, 0.11],
       hurt: [78, 0.25], pearl: [820, 0.1], lure: [540, 0.28], checkpoint: [700, 0.2],
-      menu: [350, 0.06], catch: [660, 0.4],
+      menu: [350, 0.06], catch: [660, 0.4], dash: [185, 0.08], dashReady: [930, 0.08],
+      grapple: [310, 0.1], flow: [1040, 0.08], slide: [145, 0.07],
     };
     const [frequency, duration] = sounds[name] || sounds.menu;
     this.tone(frequency, duration, 0.042, name === 'hurt' ? 'sawtooth' : 'square');
+    if (name === 'dash') this.tone(285, 0.06, 0.025, 'triangle', 0.035);
+    if (name === 'flow') this.tone(1320, 0.1, 0.022, 'triangle', 0.045);
+    if (name === 'grapple') this.tone(465, 0.08, 0.02, 'triangle', 0.04);
+    if (name === 'jump') this.tone(590, 0.055, 0.016, 'triangle', 0.035);
+    if (name === 'pearl') this.tone(1230, 0.08, 0.014, 'sine', 0.025);
+    if (name === 'dash' || name === 'slide') this.noise(0.1, 0.018, name === 'dash' ? 1700 : 620);
+    if (name === 'hit' || name === 'hurt' || name === 'land') this.noise(0.07, name === 'hurt' ? 0.03 : 0.016, name === 'hurt' ? 420 : 760);
   }
 }
 
@@ -128,7 +156,13 @@ const musicScales = [
   [196, 220, 262, 294, 330, 392], [174, 196, 220, 262, 294, 349], [196, 220, 247, 294, 330, 370],
   [174, 196, 233, 262, 294, 349], [196, 233, 262, 294, 349, 392],
 ];
-const musicMelody = [0, 2, 4, 2, 1, 3, 5, 3, 0, -1, 2, 1, 4, 3, 2, -1];
+const musicPatterns = [
+  { pace: .5, melody: [0,2,4,2,1,3,5,3,0,-1,2,1,4,3,2,-1], bass: [0,3,2,4] },
+  { pace: .57, melody: [0,-1,2,4,3,2,-1,1,0,2,5,4,2,-1,1,-1], bass: [0,2,3,1] },
+  { pace: .43, melody: [0,2,3,5,4,2,1,3,5,-1,4,3,1,2,0,-1], bass: [0,4,2,3] },
+  { pace: .62, melody: [0,1,3,2,-1,4,3,1,0,-1,2,4,3,2,1,-1], bass: [0,3,1,2] },
+  { pace: .54, melody: [0,4,2,5,-1,3,1,4,0,2,-1,5,4,2,3,-1], bass: [0,2,4,1] },
+];
 
 const isDown = (...codes) => codes.some(code => keys.has(code));
 const wasPressed = (...codes) => codes.some(code => pressed.has(code));
@@ -141,12 +175,21 @@ function persist() { localStorage.setItem('reelbound-v4', JSON.stringify(save));
 
 function makeRuntimeLevel() {
   level.runtimePearls = level.pearls.map(p => ({ x: p[0] * TILE + 16, y: p[1] * TILE + 16, taken: false }));
-  level.runtimeEnemies = level.enemies.map((e, index) => ({
-    x: e[0] * TILE + 4, y: e[1] * TILE + (e[2] === 'skipper' ? -36 : 7),
-    w: e[2] === 'bloop' ? 28 : 23, h: e[2] === 'skipper' ? 18 : 20, type: e[2],
-    vx: index % 2 ? 36 : -36, vy: 0, alive: true, state: 'patrol',
-    timer: 1.1 + (index % 3) * 0.45, cooldown: 0.8 + (index % 2), originY: e[1] * TILE + 7,
-  }));
+  level.runtimeEnemies = level.enemies.map((e, index) => {
+    const width = e[2] === 'bloop' ? 28 : 23;
+    const height = e[2] === 'skipper' ? 18 : 20;
+    const x = e[0] * TILE + 4;
+    const nominalY = e[1] * TILE;
+    const groundY = level.platforms
+      .filter(platform => x + width / 2 >= platform[0] * TILE && x + width / 2 <= (platform[0] + platform[2]) * TILE && platform[1] * TILE >= nominalY)
+      .reduce((nearest, platform) => Math.min(nearest, platform[1] * TILE), (e[1] + 2) * TILE);
+    const originY = groundY - height;
+    return {
+      x, y: e[2] === 'skipper' ? originY - 42 : originY, w: width, h: height, type: e[2],
+      vx: index % 2 ? 36 : -36, vy: 0, alive: true, state: 'patrol',
+      timer: 1.1 + (index % 3) * 0.45, cooldown: 0.8 + (index % 2), originY,
+    };
+  });
   level.runtimeMovers = level.movers.map((m, index) => ({
     x: m[0] * TILE, y: m[1] * TILE, w: m[2] * TILE, h: m[3] * TILE,
     baseX: m[0] * TILE, baseY: m[1] * TILE, travelX: m[4], travelY: m[5],
@@ -163,14 +206,23 @@ function makeRuntimeLevel() {
   level.signs.forEach(sign => { sign.seen = false; });
 }
 
+function safeSpawnY(worldX, hintY) {
+  const centerX = worldX + 12;
+  const floorY = level.platforms
+    .filter(platform => centerX >= platform[0] * TILE && centerX <= (platform[0] + platform[2]) * TILE && platform[1] * TILE >= hintY)
+    .reduce((nearest, platform) => Math.min(nearest, platform[1] * TILE), hintY + 2 * TILE);
+  return floorY - 52;
+}
+
 function spawn(x, y, checkpoint = { x, y }) {
   player = {
     x, y: y + 8, w: 24, h: 44, vx: 0, vy: 0, facing: 1,
     grounded: false, coyote: 0, jumpBuffer: 0, jumpHeld: false,
-    wallDirection: 0, hook: null, rodTimer: 0, hurtTimer: 0,
+    wallDirection: 0, lastWallDirection: 0, wallCoyote: 0, wallJumpLock: 0, hook: null, rodTimer: 0, hurtTimer: 0,
     checkpoint, riding: null, animationTime: 0, landingTimer: 0,
     airJumps: 1, crouched: false, crouchTime: 0, sliding: false, slideTimer: 0,
-    dashTimer: 0, dashCooldown: 0,
+    dashTimer: 0, dashCooldown: 0, dashCharges: 1, dashRefill: 0, afterimageTimer: 0,
+    flow: 0, flowTimer: 0, combo: 0, comboTimer: 0, hearts: 3,
   };
 }
 
@@ -178,13 +230,17 @@ function startLevel(index = 0) {
   levelIndex = index;
   level = LEVELS[index];
   makeRuntimeLevel();
-  spawn(level.start[0] * TILE, level.start[1] * TILE);
+  const startX = level.start[0] * TILE;
+  spawn(startX, safeSpawnY(startX, level.start[1] * TILE));
   camera = elapsed = deaths = pearls = musicStep = 0;
   musicTimer = 0;
   tip = '';
   tipTimer = 0;
   particles = [];
+  afterimages = [];
+  floatingTexts = [];
   enemyProjectiles = [];
+  screenShake = hitStop = 0;
   state = 'play';
   ui.overlay.classList.add('hidden');
   ui.tackle.classList.add('hidden');
@@ -368,11 +424,44 @@ function setCrouched(crouched) {
   player.crouched = false;
 }
 
-function createParticles(x, y, color = '#fff1cf', count = 5) {
+function createParticles(x, y, color = '#fff1cf', count = 5, force = 1) {
   for (let i = 0; i < count; i++) particles.push({
-    x, y, vx: (Math.random() - 0.5) * 90, vy: -20 - Math.random() * 70,
-    life: 0.4 + Math.random() * 0.2, color,
+    x, y, vx: (Math.random() - 0.5) * 110 * force, vy: (-20 - Math.random() * 85) * force,
+    life: 0.36 + Math.random() * 0.28, color, size: 2 + Math.random() * 4,
   });
+}
+
+function addFloatingText(text, x, y, color = '#fff1cf', size = 10) {
+  floatingTexts.push({ text, x, y, color, size, life: 0.9 });
+}
+
+function addFlow(amount, label = '', color = '#7ee4df') {
+  player.flow = Math.min(100, player.flow + amount);
+  player.flowTimer = 2.5;
+  player.combo = player.comboTimer > 0 ? player.combo + 1 : 1;
+  player.comboTimer = 2.5;
+  if (label) addFloatingText(label, player.x + player.w / 2, player.y - 8, color, player.combo >= 5 ? 12 : 9);
+}
+
+function refillDash(label = 'DASH READY') {
+  if (player.dashCharges > 0) return;
+  player.dashCharges = 1;
+  player.dashRefill = 0;
+  addFloatingText(label, player.x + player.w / 2, player.y - 20, '#7ee4df', 8);
+  createParticles(player.x + player.w / 2, player.y + player.h / 2, '#7ee4df', 7, 0.65);
+  audio.effect('dashReady');
+}
+
+function releaseHook(boost = false) {
+  if (!player.hook) return;
+  if (boost) {
+    const travel = Math.sign(player.vx) || player.facing;
+    player.vx += travel * 72;
+    player.vy -= 54;
+    addFlow(12, 'REEL RELEASE', '#ffd77d');
+    createParticles(player.x + player.w / 2, player.y + 10, '#ffd77d', 8, 0.75);
+  }
+  player.hook = null;
 }
 
 function enemyHurtbox(enemy) {
@@ -387,19 +476,54 @@ function launchEnemy(enemy, direction) {
   enemy.vy = -350;
   enemy.rotation = 0;
   audio.effect('hit');
-  createParticles(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, '#ffbd47', 12);
+  hitStop = 0.045;
+  screenShake = Math.max(screenShake, 7);
+  refillDash('DASH REFILLED');
+  addFlow(24, 'TIDY TACKLE!', '#ffbd47');
+  createParticles(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, '#ffbd47', 16, 1.35);
 }
 
-function showTip(heading, body) { tip = `${heading} — ${body}`; tipTimer = 4; }
+function showTip(heading, body) { tip = { heading, body }; tipTimer = 4; }
 
-function damagePlayer() {
-  if (player.hurtTimer > 0) return;
+function drawWrappedText(text, centerX, startY, maxWidth, lineHeight, maxLines = 2) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(candidate).width > maxWidth) { lines.push(line); line = word; }
+    else line = candidate;
+  }
+  if (line) lines.push(line);
+  lines.slice(0, maxLines).forEach((value, index) => ctx.fillText(value, centerX, startY + index * lineHeight));
+}
+
+function respawnPlayer() {
   const checkpoint = { ...player.checkpoint };
   deaths++;
   audio.effect('hurt');
-  createParticles(player.x + player.w / 2, player.y + player.h / 2, '#ef6a4c', 10);
+  screenShake = 10;
+  createParticles(player.x + player.w / 2, player.y + player.h / 2, '#ef6a4c', 14, 1.25);
   spawn(checkpoint.x, checkpoint.y, checkpoint);
   player.hurtTimer = 1;
+}
+
+function damagePlayer(sourceX = player.x, fatal = false) {
+  if (player.hurtTimer > 0) return;
+  if (fatal || player.hearts <= 1) { respawnPlayer(); return; }
+  player.hearts--;
+  player.hurtTimer = 1.15;
+  player.vx = (player.x < sourceX ? -1 : 1) * 245;
+  player.vy = -285;
+  player.flow = Math.max(0, player.flow - 35);
+  player.combo = 0;
+  player.comboTimer = 0;
+  releaseHook(false);
+  audio.effect('hurt');
+  screenShake = 9;
+  hitStop = 0.06;
+  addFloatingText('-1 HEART', player.x + player.w / 2, player.y - 14, '#ff7a63', 11);
+  createParticles(player.x + player.w / 2, player.y + player.h / 2, '#ef6a4c', 12, 1.2);
 }
 
 function nearestTarget(list, range, filter = () => true) {
@@ -413,32 +537,47 @@ function nearestTarget(list, range, filter = () => true) {
   return target;
 }
 
+function nearestHookTarget(list, range) {
+  let target = null;
+  let bestScore = range * 2;
+  for (const item of list) {
+    const dx = item.x - (player.x + player.w / 2);
+    const dy = item.y - (player.y + 12);
+    const distance = Math.hypot(dx, dy);
+    if (distance > range) continue;
+    const behindPenalty = Math.sign(dx) !== player.facing ? 95 : 0;
+    const belowPenalty = dy > 80 ? 55 : 0;
+    const score = distance + behindPenalty + belowPenalty;
+    if (score < bestScore) { target = item; bestScore = score; }
+  }
+  return target;
+}
+
 function castRod() {
   const lure = save.equipped;
   const range = lure === 'magnet' ? 290 : 220;
   const hookTargets = level.hooks.map(h => ({ x: h[0] * TILE + 16, y: h[1] * TILE + 16 }));
   if (lure === 'moon') hookTargets.push(...level.runtimePearls.filter(p => !p.taken));
-  const hook = nearestTarget(hookTargets, range);
-  if (hook) {
-    player.hook = hook;
-    player.rodTimer = 0.2;
-    audio.effect('rod');
-    return;
-  }
-  const enemy = nearestTarget(level.runtimeEnemies, range, e => e.alive && Math.sign(e.x - player.x) === player.facing);
+  const enemy = nearestTarget(level.runtimeEnemies, Math.min(range, 150), e => e.alive && Math.sign(e.x - player.x) === player.facing);
   if (enemy) {
-    enemy.state = 'defeated'; enemy.timer = 0.55; enemy.vx = 0;
     player.rodTimer = 0.24;
-    audio.effect('hit');
-    createParticles(enemy.x + 15, enemy.y + 12, '#ffbd47', 8);
+    launchEnemy(enemy, player.facing);
     if (lure === 'storm') {
       for (const chained of level.runtimeEnemies) {
-        if (chained.alive && Math.hypot(chained.x - enemy.x, chained.y - enemy.y) < 150) {
-          chained.state = 'defeated'; chained.timer = 0.55; chained.vx = 0;
+        if (chained !== enemy && chained.alive && Math.hypot(chained.x - enemy.x, chained.y - enemy.y) < 150) {
+          launchEnemy(chained, player.facing);
           createParticles(chained.x, chained.y, '#f2d45c', 6);
         }
       }
     }
+    return;
+  }
+  const hook = nearestHookTarget(hookTargets, range);
+  if (hook) {
+    player.hook = { ...hook, length: Math.max(72, Math.hypot(hook.x - player.x, hook.y - player.y) * 0.72) };
+    player.rodTimer = 0.2;
+    audio.effect('grapple');
+    addFloatingText('HOOKED!', hook.x, hook.y - 18, '#ffd77d', 8);
     return;
   }
   player.rodTimer = 0.22;
@@ -449,28 +588,38 @@ function updateMusic(dt) {
   if (!soundEnabled || !audio.context || state !== 'play') return;
   musicTimer -= dt;
   if (musicTimer > 0) return;
-  musicTimer = 0.54;
+  const pattern = musicPatterns[level.music];
+  musicTimer = pattern.pace - (player?.flow || 0) * .00045;
   const scale = musicScales[level.music];
-  const melodyIndex = musicMelody[musicStep % musicMelody.length];
-  if (melodyIndex >= 0) audio.pluck(scale[melodyIndex], 0, 0.011);
-  if (musicStep % 4 === 0) audio.pluck(scale[(musicStep / 4) % 3 | 0] / 2, 0.04, 0.007);
+  const melodyIndex = pattern.melody[musicStep % pattern.melody.length];
+  if (melodyIndex >= 0) audio.pluck(scale[melodyIndex], 0, 0.0095);
+  if (musicStep % 4 === 0) audio.pluck(scale[pattern.bass[(musicStep / 4) % pattern.bass.length | 0]] / 2, 0.04, 0.006);
+  if (player.flow >= 65 && melodyIndex >= 0 && musicStep % 2 === 0) audio.pluck(scale[(melodyIndex + 2) % scale.length] * 2, 0.07, 0.0035);
   musicStep++;
 }
 
 function update(dt) {
   updateMusic(dt);
   if (state !== 'play') return;
+  if (hitStop > 0) { hitStop = Math.max(0, hitStop - dt); pressed.clear(); return; }
   elapsed += dt;
+  screenShake = Math.max(0, screenShake - 28 * dt);
   tipTimer = Math.max(0, tipTimer - dt);
   player.hurtTimer = Math.max(0, player.hurtTimer - dt);
   player.rodTimer = Math.max(0, player.rodTimer - dt);
   player.landingTimer = Math.max(0, player.landingTimer - dt);
   player.dashTimer = Math.max(0, player.dashTimer - dt);
   player.dashCooldown = Math.max(0, player.dashCooldown - dt);
+  player.wallJumpLock = Math.max(0, player.wallJumpLock - dt);
+  player.flowTimer = Math.max(0, player.flowTimer - dt);
+  player.comboTimer = Math.max(0, player.comboTimer - dt);
+  if (player.flowTimer <= 0) player.flow = Math.max(0, player.flow - 12 * dt);
+  if (player.comboTimer <= 0) player.combo = 0;
   player.animationTime += dt;
   updateMovingPlatforms();
 
-  const direction = (isDown('KeyD', 'ArrowRight') ? 1 : 0) - (isDown('KeyA', 'ArrowLeft') ? 1 : 0);
+  const inputDirection = (isDown('KeyD', 'ArrowRight') ? 1 : 0) - (isDown('KeyA', 'ArrowLeft') ? 1 : 0);
+  const direction = player.wallJumpLock > 0 ? 0 : inputDirection;
   const jumpPressed = wasPressed('Space', 'KeyZ', 'ArrowUp');
   const jumpHeld = isDown('Space', 'KeyZ', 'ArrowUp');
   const crouchHeld = isDown('ControlLeft', 'ControlRight');
@@ -478,67 +627,103 @@ function update(dt) {
   const dashPressed = wasPressed('KeyQ', 'ShiftLeft', 'ShiftRight');
   const rodHeld = isDown('KeyE');
   if (direction) player.facing = direction;
-  if (jumpPressed) player.jumpBuffer = 0.13;
+  if (jumpPressed) player.jumpBuffer = MOVEMENT.jumpBufferTime;
   else player.jumpBuffer = Math.max(0, player.jumpBuffer - dt);
-  player.coyote = player.grounded ? 0.12 : Math.max(0, player.coyote - dt);
+  player.coyote = player.grounded ? MOVEMENT.coyoteTime : Math.max(0, player.coyote - dt);
 
   if (wasPressed('KeyE')) castRod();
-  if (player.hook && !rodHeld) player.hook = null;
+  if (player.hook && !rodHeld) releaseHook(Math.abs(player.vx) > 185);
   if (wasPressed('Tab', 'KeyT')) openTackleBox();
 
-  if (dashPressed && player.dashCooldown <= 0 && !player.crouched) {
-    player.dashTimer = 0.16;
-    player.dashCooldown = 0.68;
-    player.vx = player.facing * 355;
-    player.vy = 0;
-    player.hook = null;
-    audio.effect('rod');
-    createParticles(player.x + player.w / 2, player.y + player.h / 2, '#7ed9d1', 10);
+  if (dashPressed && player.dashCooldown <= 0 && player.dashCharges > 0 && !player.crouched) {
+    player.dashTimer = MOVEMENT.dashDuration;
+    player.dashCooldown = MOVEMENT.dashCooldown;
+    player.dashCharges--;
+    player.vx = player.facing * MOVEMENT.dashSpeed;
+    player.vy = Math.min(-34, player.vy * 0.22);
+    releaseHook(false);
+    audio.effect('dash');
+    screenShake = Math.max(screenShake, 3.5);
+    addFlow(7, 'SURGE!', '#7ed9d1');
+    createParticles(player.x + player.w / 2, player.y + player.h / 2, '#7ed9d1', 12, 1.1);
   }
 
   const touchingWall = wallProbe();
   player.wallDirection = touchingWall;
+  if (touchingWall) {
+    player.lastWallDirection = touchingWall;
+    player.wallCoyote = MOVEMENT.wallCoyoteTime;
+  } else player.wallCoyote = Math.max(0, player.wallCoyote - dt);
   const canGroundJump = player.coyote > 0;
-  const canWallJump = touchingWall && !player.grounded;
+  const canWallJump = player.wallCoyote > 0 && !player.grounded;
   const canDoubleJump = !player.grounded && !canWallJump && player.airJumps > 0;
   if (player.jumpBuffer > 0 && (canGroundJump || canWallJump || canDoubleJump)) {
+    const slideJump = player.sliding;
+    const surgeJump = player.dashTimer > 0;
     if (canWallJump) {
-      player.vx = -touchingWall * 265;
-      player.facing = -touchingWall;
+      player.vx = -player.lastWallDirection * MOVEMENT.wallJumpHorizontal;
+      player.facing = -player.lastWallDirection;
+      player.wallJumpLock = 0.11;
+      player.vy = -MOVEMENT.wallJumpVelocity;
+      addFlow(8, 'WALL KICK', '#b9fff0');
     } else if (canDoubleJump && !canGroundJump) {
       player.airJumps--;
-      createParticles(player.x + player.w / 2, player.y + player.h, '#7ed9d1', 9);
+      player.vy = -MOVEMENT.doubleJumpVelocity;
+      addFlow(5, 'SECOND WIND', '#9ee9df');
+      createParticles(player.x + player.w / 2, player.y + player.h, '#7ed9d1', 11, 0.8);
+    } else {
+      player.vy = -MOVEMENT.jumpVelocity;
     }
-    player.vy = canWallJump ? -405 : -425;
+    if (slideJump) {
+      player.vx = player.facing * Math.max(MOVEMENT.slideJumpSpeed, Math.abs(player.vx));
+      player.sliding = false;
+      player.slideTimer = 0;
+      addFlow(12, 'SKIM JUMP!', '#ffd77d');
+    } else if (surgeJump && !canWallJump) {
+      player.vx = player.facing * Math.max(345, Math.abs(player.vx) * 0.88);
+      addFlow(10, 'SURGE JUMP!', '#ffd77d');
+    }
     player.grounded = false;
     player.riding = null;
     player.jumpBuffer = 0;
     player.coyote = 0;
     player.jumpHeld = true;
     audio.effect('jump');
-    createParticles(player.x + player.w / 2, player.y + player.h, '#e9f4dc', 5);
+    createParticles(player.x + player.w / 2, player.y + player.h, '#e9f4dc', 7, slideJump || surgeJump ? 1.1 : 0.7);
   }
 
   if (crouchPressed && player.grounded && Math.abs(player.vx) >= 145) {
     player.sliding = true;
-    player.slideTimer = 0.58;
-    player.vx = Math.sign(player.vx) * Math.max(225, Math.abs(player.vx));
-    audio.effect('land');
+    player.slideTimer = MOVEMENT.slideDuration;
+    player.vx = Math.sign(player.vx) * Math.max(MOVEMENT.slideSpeed, Math.abs(player.vx));
+    audio.effect('slide');
+    addFlow(6, 'SKIM!', '#f4db9a');
+    createParticles(player.x + player.w / 2, player.y + player.h, '#d8c696', 8, 0.8);
   }
   player.slideTimer = Math.max(0, player.slideTimer - dt);
   if (!player.slideTimer || !player.grounded) player.sliding = false;
   setCrouched(crouchHeld || player.sliding);
   if (player.crouched) player.crouchTime += dt;
 
-  const maxSpeed = player.crouched && !player.sliding ? 90 : 205;
-  const acceleration = player.grounded ? 1050 : 620;
-  const deceleration = level.gimmick === 'ice' ? 260 : (player.grounded ? 1350 : 180);
-  if (player.dashTimer > 0) player.vx = player.facing * 355;
-  else if (player.sliding) player.vx = approach(player.vx, 0, 185 * dt);
+  const maxSpeed = player.crouched && !player.sliding ? MOVEMENT.crouchSpeed : flowSpeed(player.flow);
+  const reversing = direction && Math.sign(player.vx) && direction !== Math.sign(player.vx);
+  const acceleration = player.grounded ? (reversing ? MOVEMENT.turnAcceleration : MOVEMENT.groundAcceleration) : MOVEMENT.airAcceleration;
+  const deceleration = level.gimmick === 'ice' ? MOVEMENT.iceFriction : (player.grounded ? MOVEMENT.groundFriction : MOVEMENT.airDrag);
+  if (player.dashTimer > 0) {
+    player.vx = player.facing * MOVEMENT.dashSpeed;
+    player.afterimageTimer -= dt;
+    if (player.afterimageTimer <= 0) {
+      afterimages.push({ x: player.x, y: player.y, facing: player.facing, life: 0.17 });
+      player.afterimageTimer = 0.035;
+    }
+  } else if (player.sliding) player.vx = approach(player.vx, 0, MOVEMENT.slideFriction * dt);
   else player.vx = direction ? approach(player.vx, direction * maxSpeed, acceleration * dt) : approach(player.vx, 0, deceleration * dt);
-  if (player.dashTimer <= 0) player.vy += 1120 * dt;
-  if (!player.grounded && touchingWall && player.vy > 95 && direction === touchingWall) player.vy = 95;
-  if (!jumpHeld && player.jumpHeld && player.vy < -150) player.vy += 1350 * dt;
+  if (player.dashTimer <= 0) player.vy += gravityForVelocity(player.vy, jumpHeld, Boolean(player.hook)) * dt;
+  if (!player.grounded && touchingWall && player.vy > MOVEMENT.wallSlideSpeed && inputDirection === touchingWall) {
+    player.vy = MOVEMENT.wallSlideSpeed;
+    if (Math.floor(elapsed * 12) % 3 === 0) createParticles(player.x + (touchingWall > 0 ? player.w : 0), player.y + player.h * .7, '#d8e3d8', 1, 0.35);
+  }
+  if (!jumpHeld && player.jumpHeld && player.vy < -145) player.vy += 1550 * dt;
   if (player.vy >= 0) player.jumpHeld = false;
   if (save.equipped === 'bubble' && rodHeld && player.vy > 90) player.vy = Math.min(player.vy, 120);
 
@@ -546,9 +731,16 @@ function update(dt) {
     const dx = player.hook.x - (player.x + player.w / 2);
     const dy = player.hook.y - (player.y + 12);
     const distance = Math.max(1, Math.hypot(dx, dy));
-    player.vx += (dx / distance) * 500 * dt;
-    player.vy += (dy / distance) * 500 * dt;
-    if (distance > 250) player.hook = null;
+    const tension = Math.max(0.32, Math.min(1.25, distance / player.hook.length));
+    player.vx += (dx / distance) * MOVEMENT.grappleAcceleration * tension * dt;
+    player.vy += (dy / distance) * MOVEMENT.grappleAcceleration * tension * dt;
+    player.vx += inputDirection * 360 * dt;
+    const speed = Math.hypot(player.vx, player.vy);
+    if (speed > MOVEMENT.grappleMaxSpeed) {
+      player.vx = player.vx / speed * MOVEMENT.grappleMaxSpeed;
+      player.vy = player.vy / speed * MOVEMENT.grappleMaxSpeed;
+    }
+    if (distance > 285) releaseHook(false);
   }
 
   for (const current of level.currents) {
@@ -558,7 +750,8 @@ function update(dt) {
     if (overlaps(player, { x: wind[0] * TILE, y: wind[1] * TILE, w: wind[2] * TILE, h: wind[3] * TILE })) player.vx += wind[4] * dt;
   }
 
-  const wasFalling = player.vy > 170;
+  const impactSpeed = player.vy;
+  const wasFalling = impactSpeed > 170;
   player.grounded = false;
   player.riding = null;
   const horizontal = movePlayerAxis('x', player.vx * dt);
@@ -566,21 +759,26 @@ function update(dt) {
   const vertical = movePlayerAxis('y', player.vy * dt);
   player.riding = vertical.landedOn;
   player.wallDirection = wallProbe();
-  if (player.grounded) player.airJumps = 1;
+  if (player.grounded) {
+    player.airJumps = 1;
+    if (player.dashTimer <= 0 && player.dashCooldown <= 0) { player.dashCharges = 1; player.dashRefill = 0; }
+  }
   if (player.grounded && wasFalling) {
     player.landingTimer = 0.1;
     audio.effect('land');
-    createParticles(player.x + player.w / 2, player.y + player.h, '#d8e3d8', 4);
+    if (impactSpeed > 300) screenShake = Math.max(screenShake, 2);
+    createParticles(player.x + player.w / 2, player.y + player.h, '#d8e3d8', 6, 0.65);
   }
 
-  if (player.y > 570) damagePlayer();
+  if (player.y > 570) damagePlayer(player.x, true);
   for (const hazard of level.hazards) {
-    if (overlaps(player, { x: hazard[0] * TILE, y: hazard[1] * TILE, w: hazard[2] * TILE, h: hazard[3] * TILE })) damagePlayer();
+    if (overlaps(player, { x: hazard[0] * TILE, y: hazard[1] * TILE, w: hazard[2] * TILE, h: hazard[3] * TILE })) damagePlayer(player.x, true);
   }
 
   for (const checkpoint of level.checkpoints) {
     if (player.x > checkpoint[0] * TILE && player.checkpoint.x < checkpoint[0] * TILE) {
-      player.checkpoint = { x: checkpoint[0] * TILE, y: checkpoint[1] * TILE };
+      const checkpointX = checkpoint[0] * TILE;
+      player.checkpoint = { x: checkpointX, y: safeSpawnY(checkpointX, checkpoint[1] * TILE) };
       audio.effect('checkpoint');
       showTip('CHECKPOINT', 'Pip lit the harbor lantern');
     }
@@ -591,7 +789,11 @@ function update(dt) {
       pearl.taken = true;
       pearls += save.equipped === 'golden' ? 2 : 1;
       audio.effect('pearl');
-      createParticles(pearl.x, pearl.y);
+      player.dashRefill++;
+      addFlow(7 + Math.min(5, player.combo), player.combo >= 4 ? `${player.combo + 1} FLOW CHAIN` : 'NICE LINE', '#fff1cf');
+      if (player.combo > 0 && player.combo % 5 === 0) audio.effect('flow');
+      if (player.dashRefill >= 3) refillDash();
+      createParticles(pearl.x, pearl.y, '#fff1cf', 7, 0.85);
     }
     if (!pearl.taken && save.equipped === 'magnet' && Math.hypot(player.x - pearl.x, player.y - pearl.y) < 150) {
       pearl.x += (player.x - pearl.x) * dt * 4;
@@ -655,19 +857,18 @@ function update(dt) {
       const stompAttack = player.vy > 90 && player.y + player.h <= hurtbox.y + hurtbox.h * 0.62;
       if (slideAttack) {
         launchEnemy(enemy, Math.sign(player.vx) || player.facing);
-        player.vx *= 0.82;
+        player.vx *= 0.94;
       } else if (stompAttack) {
-        enemy.state = 'defeated'; enemy.timer = 0.55; enemy.vx = 0;
-        player.vy = -300;
-        audio.effect('hit');
-        createParticles(enemy.x, enemy.y, '#ef6a4c', 7);
-      } else damagePlayer();
+        launchEnemy(enemy, player.facing);
+        player.vy = -318;
+        addFlow(8, 'DECK BOUNCE!', '#ffd77d');
+      } else damagePlayer(enemy.x + enemy.w / 2);
     }
   }
   for (const bubble of enemyProjectiles) {
     bubble.x += bubble.vx * dt;
     bubble.life -= dt;
-    if (overlaps(player, { x: bubble.x - 7, y: bubble.y - 7, w: 14, h: 14 })) { bubble.life = 0; damagePlayer(); }
+    if (overlaps(player, { x: bubble.x - 7, y: bubble.y - 7, w: 14, h: 14 })) { bubble.life = 0; damagePlayer(bubble.x); }
   }
   enemyProjectiles = enemyProjectiles.filter(bubble => bubble.life > 0);
 
@@ -708,7 +909,9 @@ function update(dt) {
   }
 
   if (overlaps(player, { x: level.goal[0] * TILE, y: level.goal[1] * TILE, w: 50, h: 72 })) completeLevel();
-  camera = approach(camera, Math.max(0, Math.min(level.width * TILE - 960, player.x - 360)), 900 * dt);
+  const lookAhead = Math.max(-110, Math.min(150, player.vx * .48));
+  const cameraTarget = Math.max(0, Math.min(level.width * TILE - 960, player.x - 340 + lookAhead));
+  camera = approach(camera, cameraTarget, (980 + Math.abs(player.vx) * 1.35) * dt);
 
   for (const particle of particles) {
     particle.x += particle.vx * dt;
@@ -717,6 +920,10 @@ function update(dt) {
     particle.life -= dt;
   }
   particles = particles.filter(particle => particle.life > 0);
+  for (const ghost of afterimages) ghost.life -= dt;
+  afterimages = afterimages.filter(ghost => ghost.life > 0);
+  for (const text of floatingTexts) { text.y -= 25 * dt; text.life -= dt; }
+  floatingTexts = floatingTexts.filter(text => text.life > 0);
   pressed.clear();
 }
 
@@ -879,6 +1086,24 @@ function drawPropCell(index, x, y, w, h) {
   ctx.drawImage(image, (index % 4) * cellWidth, Math.floor(index / 4) * cellHeight, cellWidth, cellHeight, x, y, w, h);
 }
 
+function drawFinnAfterimage(ghost) {
+  const image = images.finn;
+  const cellWidth = image.width / 4;
+  const cellHeight = image.height / 2;
+  const [cropX, cropY, cropW, cropH] = [15, 112, 350, 355];
+  const sourceX = 3 * cellWidth + cropX;
+  const width = cropW * FINN_SPRITE_SCALE;
+  const height = cropH * FINN_SPRITE_SCALE;
+  const x = screenX(ghost.x + player.w / 2) - width / 2;
+  const y = ghost.y + player.h - height;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, ghost.life / .17) * .32;
+  ctx.filter = 'hue-rotate(135deg) saturate(1.6)';
+  if (ghost.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, cropY, cropW, cropH, 0, y, width, height); }
+  else ctx.drawImage(image, sourceX, cropY, cropW, cropH, x, y, width, height);
+  ctx.restore();
+}
+
 function drawFinn() {
   let frame = 0;
   if (player.hurtTimer > 0) frame = 7;
@@ -940,15 +1165,32 @@ function draw() {
   const backgroundOffset = -((camera * 0.07) % 140);
   ctx.drawImage(background, backgroundOffset, 0, 1100, 540);
   ctx.fillStyle = '#06152228'; ctx.fillRect(0, 0, 960, 540);
+  ctx.save();
+  if (screenShake > 0) ctx.translate((Math.random() - .5) * screenShake, (Math.random() - .5) * screenShake);
 
   for (const current of level.currents) {
     for (let i = 0; i < 10; i++) {
-      ctx.fillStyle = '#71e5d080';
-      ctx.fillRect(screenX(current[0] * TILE + 10 + (i % 3) * 55), current[1] * TILE + ((elapsed * 65 + i * 61) % (current[3] * TILE)), 4, 17);
+      ctx.fillStyle = level.gimmick === 'stars' ? '#c7a8f380' : '#71e5d080';
+      const rise = (elapsed * 65 + i * 61) % (current[3] * TILE);
+      ctx.fillRect(screenX(current[0] * TILE + 10 + (i % 3) * 55), (current[1] + current[3]) * TILE - rise, 4, 17);
+    }
+  }
+  for (const wind of level.windZones) {
+    const direction = Math.sign(wind[4]);
+    const zoneX = wind[0] * TILE;
+    const zoneWidth = wind[2] * TILE;
+    ctx.strokeStyle = '#eef4cc55'; ctx.lineWidth = 2;
+    for (let gust = 0; gust < 8; gust++) {
+      const travel = ((elapsed * (55 + gust * 3) + gust * 83) % zoneWidth);
+      const worldX = direction > 0 ? zoneX + travel : zoneX + zoneWidth - travel;
+      const y = wind[1] * TILE + 38 + (gust * 57) % Math.max(70, wind[3] * TILE - 55);
+      const x = screenX(worldX);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + direction * 18, y - 5, x + direction * 42, y); ctx.stroke();
     }
   }
   for (const platform of staticSolids()) drawPlatform(platform);
   for (const mover of level.runtimeMovers) drawPlatform(mover, true);
+  for (const ghost of afterimages) drawFinnAfterimage(ghost);
 
   for (const hazard of level.hazards) {
     const x = screenX(hazard[0] * TILE), y = hazard[1] * TILE, w = hazard[2] * TILE;
@@ -1016,24 +1258,54 @@ function draw() {
   for (const sign of level.signs) {
     drawPropCell(3, screenX(sign[0] * TILE) - 22, sign[1] * TILE - 24, 54, 54);
   }
-  for (const particle of particles) { ctx.fillStyle = particle.color; ctx.fillRect(screenX(particle.x), particle.y, 4, 4); }
+  for (const particle of particles) { ctx.fillStyle = particle.color; ctx.fillRect(screenX(particle.x), particle.y, particle.size, particle.size); }
 
   drawPropCell(6 + levelIndex, screenX(level.goal[0] * TILE) - 34, level.goal[1] * TILE - 20, 76, 76);
   drawFinn();
 
-  ctx.fillStyle = '#09232eea'; ctx.fillRect(14, 14, 530, 64);
-  ctx.strokeStyle = '#d8a344'; ctx.lineWidth = 2; ctx.strokeRect(14, 14, 530, 64);
-  ctx.strokeStyle = '#5c442d'; ctx.lineWidth = 1; ctx.strokeRect(19, 19, 520, 54);
+  if (Math.abs(player.vx) > 285) {
+    ctx.fillStyle = '#b9fff055';
+    for (let streak = 0; streak < 5; streak++) {
+      const trailX = screenX(player.x) - player.facing * (25 + streak * 18);
+      ctx.fillRect(trailX, player.y + 5 + streak * 8, 18 + streak * 5, 2);
+    }
+  }
+  for (const text of floatingTexts) {
+    ctx.save(); ctx.globalAlpha = Math.min(1, text.life * 2); ctx.fillStyle = text.color;
+    ctx.font = `bold ${text.size}px DM Mono`; ctx.textAlign = 'center';
+    ctx.fillText(text.text, screenX(text.x), text.y); ctx.restore();
+  }
+  ctx.restore();
+
+  ctx.fillStyle = '#09232eea'; ctx.fillRect(14, 14, 610, 78);
+  ctx.strokeStyle = '#d8a344'; ctx.lineWidth = 2; ctx.strokeRect(14, 14, 610, 78);
+  ctx.strokeStyle = '#5c442d'; ctx.lineWidth = 1; ctx.strokeRect(19, 19, 600, 68);
   ctx.fillStyle = '#e7b450';
-  for (const rivetX of [21, 537]) { ctx.beginPath(); ctx.arc(rivetX, 21, 3, 0, Math.PI * 2); ctx.fill(); }
+  for (const rivetX of [21, 617]) { ctx.beginPath(); ctx.arc(rivetX, 21, 3, 0, Math.PI * 2); ctx.fill(); }
   ctx.fillStyle = '#fff1cf'; ctx.font = 'bold 14px DM Mono'; ctx.fillText(`${levelIndex + 1}/5  ${level.name.toUpperCase()}`, 31, 39);
-  ctx.fillStyle = '#78d9d0'; ctx.fillRect(29, 48, 482, 1);
+  for (let heart = 0; heart < 3; heart++) {
+    ctx.fillStyle = heart < player.hearts ? '#ef6a4c' : '#493945';
+    const heartX = 524 + heart * 23;
+    ctx.fillRect(heartX, 27, 6, 5); ctx.fillRect(heartX + 8, 27, 6, 5);
+    ctx.fillRect(heartX - 2, 31, 18, 5); ctx.fillRect(heartX + 1, 36, 12, 4); ctx.fillRect(heartX + 4, 40, 6, 3);
+  }
+  ctx.fillStyle = '#78d9d0'; ctx.fillRect(29, 46, 566, 1);
   ctx.fillStyle = LURES.find(lure => lure.id === save.equipped).color; ctx.font = '9px DM Mono';
-  ctx.fillText(`${formatTime(elapsed)}  •  PEARLS ${pearls}/${level.pearls.length}  •  CACHES ${(save.caches[levelIndex] || []).length}/3  •  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 31, 67);
+  ctx.fillText(`${formatTime(elapsed)}  •  PEARLS ${pearls}/${level.pearls.length}  •  CACHES ${(save.caches[levelIndex] || []).length}/3  •  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 31, 60);
+  ctx.fillStyle = '#06151ddd'; ctx.fillRect(103, 69, 300, 9);
+  const flowColor = player.flow >= 85 ? '#ffd45a' : player.flow >= 50 ? '#72dfe0' : '#487e83';
+  ctx.fillStyle = flowColor; ctx.fillRect(104, 70, 2.98 * player.flow, 7);
+  ctx.fillStyle = '#d8f4e9'; ctx.font = 'bold 8px DM Mono'; ctx.fillText(`REEL FLOW  ${flowRank(player.flow)}`, 31, 78);
+  ctx.fillStyle = player.dashCharges ? '#7ee4df' : '#405962'; ctx.fillRect(425, 68, 73, 12);
+  ctx.fillStyle = '#071726'; ctx.font = 'bold 7px DM Mono'; ctx.fillText(player.dashCharges ? 'DASH READY' : `${player.dashRefill}/3 REFILL`, 433, 77);
+  if (player.combo >= 3 && player.comboTimer > 0) {
+    ctx.fillStyle = '#ffd77d'; ctx.font = 'bold 11px DM Mono'; ctx.fillText(`CHAIN x${player.combo}`, 512, 78);
+  }
   if (tipTimer > 0) {
-    ctx.fillStyle = '#071726ed'; ctx.fillRect(205, 457, 550, 50);
-    ctx.strokeStyle = '#d6b56a'; ctx.strokeRect(205, 457, 550, 50);
-    ctx.fillStyle = '#fff1cf'; ctx.textAlign = 'center'; ctx.font = 'bold 11px DM Mono'; ctx.fillText(tip, 480, 487); ctx.textAlign = 'left';
+    ctx.fillStyle = '#071726ed'; ctx.fillRect(155, 448, 650, 66);
+    ctx.strokeStyle = '#d6b56a'; ctx.strokeRect(155, 448, 650, 66);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#ffd77d'; ctx.font = 'bold 10px DM Mono'; ctx.fillText(tip.heading, 480, 466);
+    ctx.fillStyle = '#fff1cf'; ctx.font = 'bold 9px DM Mono'; drawWrappedText(tip.body, 480, 483, 610, 13, 2); ctx.textAlign = 'left';
   }
 }
 
