@@ -8,6 +8,7 @@
   <title>Reelbound</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="ui-redesign.css">
+  <link rel="stylesheet" href="world-map.css">
   <link rel="stylesheet" href="mobile-controls.css">
 </head>
 <body>
@@ -29,15 +30,25 @@
           <p id="overlay-copy">Five strange tides. Five legendary catches. One very dependable coat.</p>
           <button id="primary"><span>CAST OFF</span></button>
         </div>
-        <div class="chart-divider"><span></span><b>CHOOSE A CHART</b><span></span></div>
-        <div class="level-select" aria-label="Voyage selection">
-          <button data-level="0"><small>01</small><span>HARBOR</span></button>
-          <button data-level="1"><small>02</small><span>GROTTO</span></button>
-          <button data-level="2"><small>03</small><span>CLIFFS</span></button>
-          <button data-level="3"><small>04</small><span>ICEWATER</span></button>
-          <button data-level="4"><small>05</small><span>STAR-SEA</span></button>
-        </div>
+        <div class="chart-divider"><span></span><b>THE GREAT TIDE CHART</b><span></span></div>
+        <p class="campaign-tease">8 WORLDS · 40 MAIN VOYAGES · HIDDEN FISHING HOLES</p>
         <p class="controls"><span>MOVE <b>← →</b></span><span>JUMP <b>SPACE</b></span><span>SLIDE <b>↓ / C</b></span><span>DASH <b>Q</b></span><span>REEL <b>E</b></span></p>
+      </div>
+    </div>
+    <div id="world-map" class="world-map hidden">
+      <div class="chart-table">
+        <div class="map-heading"><div><p class="kicker">FINN'S GREAT TIDE CHART</p><h2>Choose a World</h2></div><button id="close-map">BACK</button></div>
+        <div class="map-body">
+          <div id="world-islands" class="world-islands" aria-label="World map"></div>
+          <aside class="world-details">
+            <p id="world-number" class="kicker">WORLD 1</p>
+            <h3 id="world-name">Tacklewick Coast</h3>
+            <p id="world-subtitle"></p>
+            <div class="world-meta"><span id="world-friend"></span><span id="world-catch"></span></div>
+            <div id="world-levels" class="world-levels"></div>
+            <div id="world-bonuses" class="world-bonuses"></div>
+          </aside>
+        </div>
       </div>
     </div>
     <div id="tackle" class="tackle hidden">

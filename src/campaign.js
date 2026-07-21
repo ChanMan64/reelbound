@@ -1,0 +1,98 @@
+export const CAMPAIGN = [
+  {
+    id: 'tacklewick', number: 1, name: 'Tacklewick Coast', subtitle: 'Where every good tale leaves the dock',
+    color: '#e0a34d', accent: '#ef7350', icon: '⚓', prototypeLevel: 0, catch: 'Copper Koi', friend: 'Pip Lanternwick',
+    levels: [
+      ['First Light at Tacklewick', 'Learn Finn’s movement and earn the Ember Minnow.'],
+      ['Netmaker’s Row', 'Slide beneath rigging and dash across working docks.'],
+      ['Gullpost Causeway', 'Read Skipper dives while climbing the mail route.'],
+      ['Wreckwater Cove', 'Use rings and moving wreckage to cross a tidal inlet.'],
+      ['The Bell Buoy Regatta', 'A joyful harbor remix ending with the Copper Koi.'],
+    ],
+    bonuses: [['Clackett’s Cargo Rush', 'A fast slide-and-dash delivery route.'], ['Moonlit Mackerel Run', 'A calm pearl-fishing score challenge.']],
+  },
+  {
+    id: 'glowkelp', number: 2, name: 'Glowkelp Grotto', subtitle: 'A lantern shines beneath the tide',
+    color: '#49c7a6', accent: '#f0c65b', icon: '◉', prototypeLevel: 1, catch: 'Lantern Eel', friend: 'Mara Shellsong',
+    levels: [
+      ['Lanternmouth Entrance', 'Meet currents, Glowkelp, and Bucket Bloop.'],
+      ['The Bubble Gardens', 'Ride bubbles and redirect slow projectiles.'],
+      ['Sunken Bellworks', 'Wake old bells to change currents and routes.'],
+      ['The Angler’s Maze', 'Choose between safe tunnels and pearl-rich shortcuts.'],
+      ['Cathedral of Kelp', 'Climb a living ruin to catch the Lantern Eel.'],
+    ],
+    bonuses: [['Pearl Diver’s Descent', 'A downward time trial with recovery bubbles.'], ['Bloop’s Bubbleworks', 'A playful projectile-redirection puzzle.']],
+  },
+  {
+    id: 'stormbreak', number: 3, name: 'Stormbreak Isles', subtitle: 'Run where the gulls fear to fly',
+    color: '#8fa38a', accent: '#f0d059', icon: 'ϟ', prototypeLevel: 2, catch: 'Thunder Marlin', friend: 'Captain Rook',
+    levels: [
+      ['Galegrass Landing', 'Learn to read and use strong coastal wind.'],
+      ['Kitekeeper’s Climb', 'Wall-jump through wind lanes and sailcloth lifts.'],
+      ['The Split Lighthouse', 'Alternate sheltered interiors with exposed dashes.'],
+      ['Cloudhook Causeway', 'Grapple between storm anchors above the sea.'],
+      ['Eye of Stormbreak', 'Race the storm front to the Thunder Marlin.'],
+    ],
+    bonuses: [['Rook’s Rescue Route', 'Carry stranded gull mail through a gale.'], ['Lightning Line Trial', 'Chain targets without touching the ground.']],
+  },
+  {
+    id: 'icewater', number: 4, name: 'Icewater Reach', subtitle: 'Warm hearts at the cold edge of the map',
+    color: '#9ed9e5', accent: '#f1e8c7', icon: '✦', prototypeLevel: 3, catch: 'Frostfin Tuna', friend: 'Nana Nori',
+    levels: [
+      ['Snowdock Welcome', 'Learn controlled momentum on forgiving ice.'],
+      ['Chimneycap Village', 'Alternate icy roofs with warm braking interiors.'],
+      ['The Frozen Ferry', 'Ride a moving ship through breaking floes.'],
+      ['Under-Ice Echoes', 'Navigate mirrored routes above and below the surface.'],
+      ['Aurora Netgrounds', 'Cross a glowing frozen bay to the Frostfin Tuna.'],
+    ],
+    bonuses: [['Nori’s Soup Run', 'Deliver hot soup without losing too much speed.'], ['Crack-Ice Cavern', 'An optional precision route through fragile floors.']],
+  },
+  {
+    id: 'starsea', number: 5, name: 'The Star-Sea', subtitle: 'Past the place where maps usually end',
+    color: '#b79bea', accent: '#75ddd6', icon: '★', prototypeLevel: 4, catch: 'The Starwhale', friend: 'Mote',
+    levels: [
+      ['Starlight Shoals', 'Meet spectral platforms and gentle low gravity.'],
+      ['Moonjelly Crossing', 'Use moving light paths and disappearing anchors.'],
+      ['The Upside-Down Tide', 'Traverse mirrored gravity pockets.'],
+      ['Constellation Current', 'Draw routes by collecting stars in an order.'],
+      ['The Starwhale’s Song', 'Follow a musical sky-current to the Starwhale.'],
+    ],
+    bonuses: [['Mote’s Lost Constellations', 'A secret-finding voyage with no hazards.'], ['Comet Wake', 'A high-speed dash course across falling stars.']],
+  },
+  {
+    id: 'emberfin', number: 6, name: 'Emberfin Marsh', subtitle: 'Where warm water meets a restless mountain',
+    color: '#d66a43', accent: '#f1c65a', icon: '♨', prototypeLevel: null, catch: 'Cinder Gar', friend: 'Tansy Reed',
+    levels: [
+      ['Steamreed Landing', 'Use steam vents as timed vertical lifts.'],
+      ['Firefly Fen', 'Follow living lights through layered marsh paths.'],
+      ['Boiling Boardwalk', 'Manage collapsing docks above hot springs.'],
+      ['The Sleeping Caldera', 'Climb through heat pulses and cooled tunnels.'],
+      ['Cinderwater Run', 'Outrace a warm flood to catch the Cinder Gar.'],
+    ],
+    bonuses: [['Tansy’s Firefly Roundup', 'Herd scattered lights into lantern jars.'], ['Mudskipper Mile', 'A low-ground slide course through the reeds.']],
+  },
+  {
+    id: 'brasswater', number: 7, name: 'Brasswater Canal', subtitle: 'A city that keeps time with the tide',
+    color: '#b97842', accent: '#69c8bd', icon: '⚙', prototypeLevel: null, catch: 'Clockwork Sturgeon', friend: 'Mister Minnow',
+    levels: [
+      ['Lockgate Market', 'Navigate crowds, gates, and scheduled water lifts.'],
+      ['The Ticking Towpath', 'Run alongside machinery with readable cycles.'],
+      ['Foundry Falls', 'Redirect coolant streams through a vertical factory.'],
+      ['Midnight Lockdown', 'Find alternate routes when the canal gates close.'],
+      ['The Grand Waterclock', 'Climb the city clock to the Clockwork Sturgeon.'],
+    ],
+    bonuses: [['Minnow’s Market Dash', 'A delivery challenge through shifting crowds.'], ['Gearfin Workshop', 'A compact machinery puzzle course.']],
+  },
+  {
+    id: 'crown', number: 8, name: 'Crown of Tides', subtitle: 'Every current leads home',
+    color: '#e6c56b', accent: '#8bded1', icon: '♛', prototypeLevel: null, catch: 'The Tidecrown Leviathan', friend: 'The Whole Crew',
+    levels: [
+      ['Eight Currents Meet', 'Choose routes inspired by every earlier world.'],
+      ['The Broken Fleet', 'Rescue friends across a storm-tossed ship graveyard.'],
+      ['Palace Beneath the Foam', 'Explore the ancient source of the magical lures.'],
+      ['The Longest Cast', 'A celebratory mastery climb using Finn’s full kit.'],
+      ['Reelbound', 'Catch the Tidecrown Leviathan and bring the fleet home.'],
+    ],
+    bonuses: [['Crew’s Victory Lap', 'A joyful character-filled remix after the ending.'], ['The Golden Fishing Hole', 'An endless score voyage with rotating challenges.']],
+  },
+];

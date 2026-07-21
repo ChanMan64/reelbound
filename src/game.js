@@ -1,4 +1,5 @@
 import { LEVELS, TILE, LURES } from './levels.js';
+import { CAMPAIGN } from './campaign.js';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -12,12 +13,22 @@ const ui = {
   tackle: document.querySelector('#tackle'),
   grid: document.querySelector('#lure-grid'),
   lureDescription: document.querySelector('#lure-description'),
+  worldMap: document.querySelector('#world-map'),
+  worldIslands: document.querySelector('#world-islands'),
+  worldNumber: document.querySelector('#world-number'),
+  worldName: document.querySelector('#world-name'),
+  worldSubtitle: document.querySelector('#world-subtitle'),
+  worldFriend: document.querySelector('#world-friend'),
+  worldCatch: document.querySelector('#world-catch'),
+  worldLevels: document.querySelector('#world-levels'),
+  worldBonuses: document.querySelector('#world-bonuses'),
 };
 
 const images = {};
 const keys = new Set();
 const pressed = new Set();
 const save = JSON.parse(localStorage.getItem('reelbound-v4') || '{"unlocked":1,"lures":["classic"],"equipped":"classic","times":{}}');
+save.campaign ??= { selectedWorld: 0, clearedPrototypes: [] };
 
 let state = 'title';
 let levelIndex = 0;
@@ -35,6 +46,8 @@ let musicTimer = 0;
 let musicStep = 0;
 let particles = [];
 let enemyProjectiles = [];
+let selectedWorld = save.campaign.selectedWorld || 0;
+let activeWorld = selectedWorld;
 
 const assetPaths = {
   finn: 'assets/sprites/finn-atlas.png',
@@ -168,8 +181,79 @@ function startLevel(index = 0) {
   state = 'play';
   ui.overlay.classList.add('hidden');
   ui.tackle.classList.add('hidden');
+  ui.worldMap.classList.add('hidden');
   audio.start();
   renderLureMenu();
+}
+
+function selectWorld(index) {
+  selectedWorld = index;
+  save.campaign.selectedWorld = index;
+  persist();
+  const world = CAMPAIGN[index];
+  [...ui.worldIslands.children].forEach((island, islandIndex) => island.classList.toggle('selected', islandIndex === index));
+  ui.worldNumber.textContent = `WORLD ${world.number}`;
+  ui.worldName.textContent = world.name;
+  ui.worldName.style.color = world.accent;
+  ui.worldSubtitle.textContent = world.subtitle;
+  ui.worldFriend.textContent = world.friend;
+  ui.worldCatch.textContent = world.catch;
+  ui.worldLevels.innerHTML = '';
+  world.levels.forEach((stage, stageIndex) => {
+    const button = document.createElement('button');
+    const playable = stageIndex === 0 && world.prototypeLevel !== null;
+    const cleared = save.campaign.clearedPrototypes.includes(world.id) && playable;
+    button.className = `level-node ${playable ? 'playable' : 'planned'} ${cleared ? 'cleared' : ''}`;
+    button.innerHTML = `<span>${world.number}-${stageIndex + 1}</span><strong>${stage[0]}</strong><small>${playable ? (cleared ? 'REPLAY VOYAGE' : 'PLAY PROTOTYPE') : 'PLANNED VOYAGE'}</small>`;
+    button.title = stage[1];
+    button.disabled = !playable;
+    if (playable) button.onclick = () => {
+      activeWorld = index;
+      startLevel(world.prototypeLevel);
+    };
+    ui.worldLevels.append(button);
+  });
+  ui.worldBonuses.innerHTML = '';
+  world.bonuses.forEach(bonus => {
+    const node = document.createElement('div');
+    node.className = 'bonus-node';
+    node.innerHTML = `<span>★</span><div><strong>${bonus[0]}</strong><small>HIDDEN FISHING HOLE</small></div>`;
+    node.title = bonus[1];
+    ui.worldBonuses.append(node);
+  });
+}
+
+function renderWorldMap() {
+  ui.worldIslands.innerHTML = '';
+  CAMPAIGN.forEach((world, index) => {
+    const island = document.createElement('button');
+    island.className = `world-island ${world.prototypeLevel === null ? 'uncharted' : ''}`;
+    island.style.setProperty('--world-color', world.color);
+    island.style.setProperty('--world-accent', world.accent);
+    island.innerHTML = `<span class="island-shape">${world.icon}</span><span class="world-label"><small>WORLD ${world.number}</small><strong>${world.name}</strong><em>${world.prototypeLevel === null ? 'UNCHARTED' : 'PROTOTYPE READY'}</em></span><span class="boat">⛵</span>`;
+    island.onclick = () => selectWorld(index);
+    ui.worldIslands.append(island);
+  });
+  selectWorld(Math.min(selectedWorld, CAMPAIGN.length - 1));
+}
+
+function openWorldMap() {
+  state = 'map';
+  ui.overlay.classList.add('hidden');
+  ui.tackle.classList.add('hidden');
+  ui.worldMap.classList.remove('hidden');
+  renderWorldMap();
+  keys.clear();
+  pressed.clear();
+}
+
+function showTitle() {
+  state = 'title';
+  ui.worldMap.classList.add('hidden');
+  ui.title.textContent = 'The tide is calling';
+  ui.copy.textContent = 'Chart a course across eight strange seas, master Finn’s fishing rod, and bring home the legendary catch from every shore.';
+  ui.primary.textContent = 'CAST OFF';
+  ui.overlay.classList.remove('hidden');
 }
 
 function staticSolids() {
@@ -597,10 +681,12 @@ function completeLevel() {
   state = 'complete';
   save.unlocked = Math.max(save.unlocked, levelIndex + 2);
   save.times[levelIndex] = Math.min(save.times[levelIndex] || 9999, elapsed);
+  const worldId = CAMPAIGN[activeWorld]?.id;
+  if (worldId && !save.campaign.clearedPrototypes.includes(worldId)) save.campaign.clearedPrototypes.push(worldId);
   persist();
   ui.title.textContent = `${level.fish} caught!`;
   ui.copy.innerHTML = `${level.name} — ${formatTime(elapsed)} — ${pearls} pearls — ${deaths} falls`;
-  ui.primary.textContent = levelIndex === 4 ? 'VIEW TACKLE LOG' : 'NEXT VOYAGE';
+  ui.primary.textContent = 'RETURN TO WORLD MAP';
   ui.overlay.classList.remove('hidden');
   audio.effect('catch');
 }
@@ -893,13 +979,13 @@ for (const button of document.querySelectorAll('[data-key]')) {
   button.onpointerleave = release;
 }
 
-for (const button of document.querySelectorAll('[data-level]')) button.onclick = () => startLevel(Number(button.dataset.level));
 document.querySelector('#touch-tackle').onclick = openTackleBox;
 document.querySelector('#close-tackle').onclick = closeTackleBox;
+document.querySelector('#close-map').onclick = showTitle;
 ui.primary.onclick = () => {
-  if (state === 'title') startLevel(0);
+  if (state === 'title') openWorldMap();
   else if (state === 'paused') { state = 'play'; ui.overlay.classList.add('hidden'); }
-  else if (state === 'complete') { if (levelIndex < 4) startLevel(levelIndex + 1); else location.reload(); }
+  else if (state === 'complete') openWorldMap();
 };
 document.querySelector('#sound').onclick = event => {
   soundEnabled = !soundEnabled;
@@ -909,4 +995,5 @@ document.querySelector('#sound').onclick = event => {
 document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pauseGame(); });
 
 renderLureMenu();
+renderWorldMap();
 requestAnimationFrame(loop);
