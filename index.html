@@ -1,7 +1,65 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#081b2c"><meta name="apple-mobile-web-app-capable" content="yes"><title>Reelbound</title><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="mobile-controls.css"></head>
-<body><main class="shell"><header><div><span class="eyebrow">A TIDE & TACKLE ADVENTURE</span><h1>REELBOUND</h1></div><button id="sound">MUSIC + SFX: ON</button></header>
-<section class="game-frame"><canvas id="game" width="960" height="540" tabindex="0" aria-label="Reelbound platform game"></canvas>
-<div id="overlay" class="overlay"><div class="panel"><p class="kicker">FIVE LEGENDARY CATCHES</p><h2 id="overlay-title">Reelbound</h2><p id="overlay-copy">Run, jump and master the magical tackle box.</p><button id="primary">CAST OFF</button><div class="level-select"><button data-level="0">HARBOR</button><button data-level="1">GROTTO</button><button data-level="2">CLIFFS</button><button data-level="3">ICE</button><button data-level="4">STARS</button></div><p class="controls">MOVE <b>LEFT / RIGHT</b> · JUMP <b>SPACE / Z</b> · SLIDE <b>DOWN / C</b> · DASH <b>Q / SHIFT</b> · REEL <b>E / X</b></p></div></div>
-<div id="tackle" class="tackle hidden"><div class="tackle-card"><p class="kicker">FINN'S TACKLE BOX</p><h2>Choose a lure</h2><div id="lure-grid" class="lure-grid"></div><p id="lure-description">Select a collected lure.</p><button id="close-tackle">BACK TO THE WATER</button></div></div>
-<div class="touch-controls"><div class="touch-move"><button data-key="KeyA">◀</button><button data-key="KeyD">▶</button></div><button class="tackle-button" id="touch-tackle">TACKLE</button><div class="touch-actions"><button class="slide-button" data-key="KeyS">SLIDE</button><button class="dash-button" data-key="KeyQ">DASH</button><button class="reel-button" data-key="KeyE"><span class="reel-icon">↻</span><span>REEL</span></button><button class="jump-button" data-key="Space">JUMP</button></div></div>
-</section><footer><span>Five handcrafted voyages</span><span>Two-button platforming</span><span>Progress saves locally</span></footer></main><script type="module" src="src/game.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#081b2c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Reelbound</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="ui-redesign.css">
+  <link rel="stylesheet" href="mobile-controls.css">
+</head>
+<body>
+<main class="shell">
+  <header class="masthead">
+    <div class="brand-lockup"><span class="eyebrow">FINN'S TIDE &amp; TACKLE TALE</span><h1>REELBOUND</h1><span class="brand-hook" aria-hidden="true"></span></div>
+    <button id="sound" class="sound-toggle"><span class="sound-lamp"></span>MUSIC + SFX: ON</button>
+  </header>
+  <section class="game-frame">
+    <canvas id="game" width="960" height="540" tabindex="0" aria-label="Reelbound platform game"></canvas>
+    <div id="overlay" class="overlay">
+      <div class="panel voyage-menu">
+        <div class="menu-rivet rivet-left"></div><div class="menu-rivet rivet-right"></div>
+        <div class="menu-character finn-portrait" aria-hidden="true"></div>
+        <div class="menu-character clackett-portrait" aria-hidden="true"></div>
+        <div class="menu-copy">
+          <p class="kicker">THE TACKLEWICK VOYAGE LOG</p>
+          <h2 id="overlay-title">Reelbound</h2>
+          <p id="overlay-copy">Five strange tides. Five legendary catches. One very dependable coat.</p>
+          <button id="primary"><span>CAST OFF</span></button>
+        </div>
+        <div class="chart-divider"><span></span><b>CHOOSE A CHART</b><span></span></div>
+        <div class="level-select" aria-label="Voyage selection">
+          <button data-level="0"><small>01</small><span>HARBOR</span></button>
+          <button data-level="1"><small>02</small><span>GROTTO</span></button>
+          <button data-level="2"><small>03</small><span>CLIFFS</span></button>
+          <button data-level="3"><small>04</small><span>ICEWATER</span></button>
+          <button data-level="4"><small>05</small><span>STAR-SEA</span></button>
+        </div>
+        <p class="controls"><span>MOVE <b>← →</b></span><span>JUMP <b>SPACE</b></span><span>SLIDE <b>↓ / C</b></span><span>DASH <b>Q</b></span><span>REEL <b>E</b></span></p>
+      </div>
+    </div>
+    <div id="tackle" class="tackle hidden">
+      <div class="tackle-card">
+        <div class="tackle-handle" aria-hidden="true"></div>
+        <div class="menu-rivet rivet-left"></div><div class="menu-rivet rivet-right"></div>
+        <p class="kicker">FINN'S FIELD-TESTED</p>
+        <h2>Tackle Box</h2>
+        <p class="tackle-instruction">Pick a lure. Every one changes what the rod can do.</p>
+        <div id="lure-grid" class="lure-grid"></div>
+        <p id="lure-description">Select a collected lure.</p>
+        <button id="close-tackle">LATCH THE BOX</button>
+      </div>
+    </div>
+    <div class="touch-controls">
+      <div class="touch-move"><button data-key="KeyA">◀</button><button data-key="KeyD">▶</button></div>
+      <button class="tackle-button" id="touch-tackle">TACKLE</button>
+      <div class="touch-actions"><button class="slide-button" data-key="KeyS">SLIDE</button><button class="dash-button" data-key="KeyQ">DASH</button><button class="reel-button" data-key="KeyE"><span class="reel-icon">↻</span><span>REEL</span></button><button class="jump-button" data-key="Space">JUMP</button></div>
+    </div>
+  </section>
+  <footer><span>Five handcrafted voyages</span><span>Four-button platforming</span><span>Progress saves locally</span></footer>
+</main>
+<script type="module" src="src/game.js"></script>
+</body>
+</html>

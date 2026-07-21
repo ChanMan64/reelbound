@@ -840,10 +840,15 @@ function draw() {
   drawPropCell(6 + levelIndex, screenX(level.goal[0] * TILE) - 34, level.goal[1] * TILE - 20, 76, 76);
   drawFinn();
 
-  ctx.fillStyle = '#071726e8'; ctx.fillRect(14, 14, 530, 60);
-  ctx.fillStyle = '#fff1cf'; ctx.font = 'bold 14px DM Mono'; ctx.fillText(`${levelIndex + 1}/5  ${level.name.toUpperCase()}`, 27, 37);
+  ctx.fillStyle = '#09232eea'; ctx.fillRect(14, 14, 530, 64);
+  ctx.strokeStyle = '#d8a344'; ctx.lineWidth = 2; ctx.strokeRect(14, 14, 530, 64);
+  ctx.strokeStyle = '#5c442d'; ctx.lineWidth = 1; ctx.strokeRect(19, 19, 520, 54);
+  ctx.fillStyle = '#e7b450';
+  for (const rivetX of [21, 537]) { ctx.beginPath(); ctx.arc(rivetX, 21, 3, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = '#fff1cf'; ctx.font = 'bold 14px DM Mono'; ctx.fillText(`${levelIndex + 1}/5  ${level.name.toUpperCase()}`, 31, 39);
+  ctx.fillStyle = '#78d9d0'; ctx.fillRect(29, 48, 482, 1);
   ctx.fillStyle = LURES.find(lure => lure.id === save.equipped).color; ctx.font = '11px DM Mono';
-  ctx.fillText(`${formatTime(elapsed)}  ·  PEARLS ${pearls}  ·  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 27, 59);
+  ctx.fillText(`${formatTime(elapsed)}  •  PEARLS ${pearls}  •  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 31, 67);
   if (tipTimer > 0) {
     ctx.fillStyle = '#071726ed'; ctx.fillRect(205, 457, 550, 50);
     ctx.strokeStyle = '#d6b56a'; ctx.strokeRect(205, 457, 550, 50);
