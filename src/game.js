@@ -135,6 +135,7 @@ const wasPressed = (...codes) => codes.some(code => pressed.has(code));
 const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 const approach = (value, target, amount) => value < target ? Math.min(value + amount, target) : Math.max(value - amount, target);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+const FINN_SPRITE_SCALE = 0.255;
 
 function persist() { localStorage.setItem('reelbound-v4', JSON.stringify(save)); }
 
@@ -873,8 +874,8 @@ function drawFinn() {
     const actionFrame = player.sliding ? (player.slideTimer > .42 ? 2 : 3) : (player.crouchTime < .12 ? 0 : 1);
     const actionCrops = [[120,160,290,420],[575,170,300,410],[980,225,410,360],[1450,280,430,310]];
     const [sourceX, cropY, cropW, cropH] = actionCrops[actionFrame];
-    const height = player.sliding ? 74 : 80;
-    const width = cropW / cropH * height;
+    const width = cropW * FINN_SPRITE_SCALE;
+    const height = cropH * FINN_SPRITE_SCALE;
     const x = screenX(player.x + player.w / 2) - width / 2;
     const y = Math.round(player.y + player.h - height);
     ctx.save();
@@ -897,8 +898,8 @@ function drawFinn() {
     const sourceX = (frame % 4) * cellWidth + cropX;
     const sourceY = Math.floor(frame / 4) * cellHeight + cropY;
     const landingScale = player.landingTimer > 0 ? 0.94 : 1;
-    const width = cropW * 0.255 / landingScale;
-    const height = cropH * 0.255 * landingScale;
+    const width = cropW * FINN_SPRITE_SCALE / landingScale;
+    const height = cropH * FINN_SPRITE_SCALE * landingScale;
     const x = screenX(player.x + player.w / 2) - width / 2;
     const y = Math.round(player.y + player.h - height);
     ctx.save();
