@@ -34,12 +34,16 @@ let soundEnabled = true;
 let musicTimer = 0;
 let musicStep = 0;
 let particles = [];
+let enemyProjectiles = [];
 
 const assetPaths = {
   finn: 'assets/sprites/finn-atlas.png',
   enemy: 'assets/sprites/enemy-atlas.png',
   lures: 'assets/sprites/lure-atlas.png',
   environment: 'assets/sprites/environment-atlas-v2.png',
+  clackett: 'assets/sprites/clackett-atlas.png',
+  skipper: 'assets/sprites/skipper-atlas.png',
+  glowgulp: 'assets/sprites/glowgulp-atlas.png',
   harbor: 'assets/backgrounds/harbor.png',
   grotto: 'assets/backgrounds/grotto.png',
   cliffs: 'assets/backgrounds/cliffs.png',
@@ -120,8 +124,10 @@ function persist() { localStorage.setItem('reelbound-v4', JSON.stringify(save));
 function makeRuntimeLevel() {
   level.runtimePearls = level.pearls.map(p => ({ x: p[0] * TILE + 16, y: p[1] * TILE + 16, taken: false }));
   level.runtimeEnemies = level.enemies.map((e, index) => ({
-    x: e[0] * TILE + 4, y: e[1] * TILE + 7, w: 21, h: 16, type: e[2],
-    vx: index % 2 ? 36 : -36, alive: true,
+    x: e[0] * TILE + 4, y: e[1] * TILE + (e[2] === 'skipper' ? -36 : 7),
+    w: e[2] === 'glowgulp' ? 32 : 25, h: e[2] === 'skipper' ? 20 : 22, type: e[2],
+    vx: index % 2 ? 36 : -36, vy: 0, alive: true, state: 'patrol',
+    timer: 1.1 + (index % 3) * 0.45, cooldown: 0.8 + (index % 2), originY: e[1] * TILE + 7,
   }));
   level.runtimeMovers = level.movers.map((m, index) => ({
     x: m[0] * TILE, y: m[1] * TILE, w: m[2] * TILE, h: m[3] * TILE,
@@ -142,6 +148,7 @@ function spawn(x, y, checkpoint = { x, y }) {
     grounded: false, coyote: 0, jumpBuffer: 0, jumpHeld: false,
     wallDirection: 0, hook: null, rodTimer: 0, hurtTimer: 0,
     checkpoint, riding: null, animationTime: 0, landingTimer: 0,
+    airJumps: 1, crouched: false, sliding: false, slideTimer: 0,
   };
 }
 
@@ -155,6 +162,7 @@ function startLevel(index = 0) {
   tip = '';
   tipTimer = 0;
   particles = [];
+  enemyProjectiles = [];
   state = 'play';
   ui.overlay.classList.add('hidden');
   ui.tackle.classList.add('hidden');
@@ -215,6 +223,30 @@ function movePlayerAxis(axis, distance) {
   return { side, landedOn };
 }
 
+function wallProbe() {
+  const left = { x: player.x - 2, y: player.y + 3, w: 2, h: player.h - 6 };
+  const right = { x: player.x + player.w, y: player.y + 3, w: 2, h: player.h - 6 };
+  if (allSolids().some(solid => overlaps(left, solid))) return -1;
+  if (allSolids().some(solid => overlaps(right, solid))) return 1;
+  return 0;
+}
+
+function setCrouched(crouched) {
+  if (crouched === player.crouched) return;
+  const difference = 16;
+  if (crouched) {
+    player.y += difference;
+    player.h -= difference;
+    player.crouched = true;
+    return;
+  }
+  const standingBody = { x: player.x, y: player.y - difference, w: player.w, h: player.h + difference };
+  if (allSolids().some(solid => overlaps(standingBody, solid))) return;
+  player.y -= difference;
+  player.h += difference;
+  player.crouched = false;
+}
+
 function createParticles(x, y, color = '#fff1cf', count = 5) {
   for (let i = 0; i < count; i++) particles.push({
     x, y, vx: (Math.random() - 0.5) * 90, vy: -20 - Math.random() * 70,
@@ -259,14 +291,14 @@ function castRod() {
   }
   const enemy = nearestTarget(level.runtimeEnemies, range, e => e.alive && Math.sign(e.x - player.x) === player.facing);
   if (enemy) {
-    enemy.alive = false;
+    enemy.state = 'defeated'; enemy.timer = 0.55; enemy.vx = 0;
     player.rodTimer = 0.24;
     audio.effect('hit');
     createParticles(enemy.x + 15, enemy.y + 12, '#ffbd47', 8);
     if (lure === 'storm') {
       for (const chained of level.runtimeEnemies) {
         if (chained.alive && Math.hypot(chained.x - enemy.x, chained.y - enemy.y) < 150) {
-          chained.alive = false;
+          chained.state = 'defeated'; chained.timer = 0.55; chained.vx = 0;
           createParticles(chained.x, chained.y, '#f2d45c', 6);
         }
       }
@@ -303,6 +335,8 @@ function update(dt) {
   const direction = (isDown('KeyD', 'ArrowRight') ? 1 : 0) - (isDown('KeyA', 'ArrowLeft') ? 1 : 0);
   const jumpPressed = wasPressed('Space', 'KeyZ', 'ArrowUp');
   const jumpHeld = isDown('Space', 'KeyZ', 'ArrowUp');
+  const crouchHeld = isDown('KeyS', 'KeyC', 'ArrowDown');
+  const crouchPressed = wasPressed('KeyS', 'KeyC', 'ArrowDown');
   const rodHeld = isDown('KeyE', 'KeyX');
   if (direction) player.facing = direction;
   if (jumpPressed) player.jumpBuffer = 0.13;
@@ -313,12 +347,20 @@ function update(dt) {
   if (player.hook && !rodHeld) player.hook = null;
   if (wasPressed('Tab', 'KeyT')) openTackleBox();
 
-  if (player.jumpBuffer > 0 && (player.coyote > 0 || player.wallDirection)) {
-    if (player.wallDirection && !player.grounded) {
-      player.vx = -player.wallDirection * 245;
-      player.facing = -player.wallDirection;
+  const touchingWall = wallProbe();
+  player.wallDirection = touchingWall;
+  const canGroundJump = player.coyote > 0;
+  const canWallJump = touchingWall && !player.grounded;
+  const canDoubleJump = !player.grounded && !canWallJump && player.airJumps > 0;
+  if (player.jumpBuffer > 0 && (canGroundJump || canWallJump || canDoubleJump)) {
+    if (canWallJump) {
+      player.vx = -touchingWall * 265;
+      player.facing = -touchingWall;
+    } else if (canDoubleJump && !canGroundJump) {
+      player.airJumps--;
+      createParticles(player.x + player.w / 2, player.y + player.h, '#7ed9d1', 9);
     }
-    player.vy = -425;
+    player.vy = canWallJump ? -405 : -425;
     player.grounded = false;
     player.riding = null;
     player.jumpBuffer = 0;
@@ -328,11 +370,23 @@ function update(dt) {
     createParticles(player.x + player.w / 2, player.y + player.h, '#e9f4dc', 5);
   }
 
-  const maxSpeed = 205;
+  if (crouchPressed && player.grounded && Math.abs(player.vx) >= 145) {
+    player.sliding = true;
+    player.slideTimer = 0.58;
+    player.vx = Math.sign(player.vx) * Math.max(225, Math.abs(player.vx));
+    audio.effect('land');
+  }
+  player.slideTimer = Math.max(0, player.slideTimer - dt);
+  if (!player.slideTimer || !player.grounded) player.sliding = false;
+  setCrouched(crouchHeld || player.sliding);
+
+  const maxSpeed = player.crouched && !player.sliding ? 90 : 205;
   const acceleration = player.grounded ? 1050 : 620;
   const deceleration = level.gimmick === 'ice' ? 260 : (player.grounded ? 1350 : 180);
-  player.vx = direction ? approach(player.vx, direction * maxSpeed, acceleration * dt) : approach(player.vx, 0, deceleration * dt);
+  if (player.sliding) player.vx = approach(player.vx, 0, 185 * dt);
+  else player.vx = direction ? approach(player.vx, direction * maxSpeed, acceleration * dt) : approach(player.vx, 0, deceleration * dt);
   player.vy += 1120 * dt;
+  if (!player.grounded && touchingWall && player.vy > 95 && direction === touchingWall) player.vy = 95;
   if (!jumpHeld && player.jumpHeld && player.vy < -150) player.vy += 1350 * dt;
   if (player.vy >= 0) player.jumpHeld = false;
   if (save.equipped === 'bubble' && rodHeld && player.vy > 90) player.vy = Math.min(player.vy, 120);
@@ -360,6 +414,8 @@ function update(dt) {
   player.wallDirection = horizontal.side;
   const vertical = movePlayerAxis('y', player.vy * dt);
   player.riding = vertical.landedOn;
+  player.wallDirection = wallProbe();
+  if (player.grounded) player.airJumps = 1;
   if (player.grounded && wasFalling) {
     player.landingTimer = 0.1;
     audio.effect('land');
@@ -394,18 +450,60 @@ function update(dt) {
 
   for (const enemy of level.runtimeEnemies) {
     if (!enemy.alive) continue;
+    if (enemy.state === 'defeated') { enemy.timer -= dt; if (enemy.timer <= 0) enemy.alive = false; continue; }
+    enemy.timer -= dt;
+    enemy.cooldown -= dt;
+    const playerDistance = Math.abs((player.x + player.w / 2) - (enemy.x + enemy.w / 2));
+    const targetDirection = Math.sign(player.x - enemy.x) || 1;
+    if (enemy.type === 'clackett') {
+      if (enemy.state === 'patrol' && enemy.cooldown <= 0 && playerDistance < 230) {
+        enemy.state = 'alert'; enemy.timer = 0.55; enemy.vx = 0;
+      } else if (enemy.state === 'alert' && enemy.timer <= 0) {
+        enemy.state = 'attack'; enemy.timer = 0.85; enemy.vx = targetDirection * 175;
+      } else if (enemy.state === 'attack' && enemy.timer <= 0) {
+        enemy.state = 'patrol'; enemy.cooldown = 2.2; enemy.vx = -targetDirection * 36;
+      }
+    } else if (enemy.type === 'skipper') {
+      if (enemy.state === 'patrol') {
+        enemy.y = enemy.originY - 42 + Math.sin(elapsed * 3 + enemy.x * 0.02) * 8;
+        if (enemy.cooldown <= 0 && playerDistance < 250) { enemy.state = 'alert'; enemy.timer = 0.42; enemy.vx = 0; }
+      } else if (enemy.state === 'alert' && enemy.timer <= 0) {
+        enemy.state = 'attack'; enemy.timer = 0.72; enemy.vx = targetDirection * 145; enemy.vy = 175;
+      } else if (enemy.state === 'attack') {
+        enemy.y += enemy.vy * dt;
+        if (enemy.timer <= 0) { enemy.state = 'patrol'; enemy.cooldown = 2.5; enemy.vx = -targetDirection * 40; enemy.vy = 0; }
+      }
+    } else if (enemy.type === 'glowgulp') {
+      if (enemy.state === 'patrol' && enemy.cooldown <= 0 && playerDistance < 280) {
+        enemy.state = 'alert'; enemy.timer = 0.68; enemy.vx = 0;
+      } else if (enemy.state === 'alert' && enemy.timer <= 0) {
+        enemy.state = 'attack'; enemy.timer = 0.35; enemy.cooldown = 2.6;
+        enemyProjectiles.push({ x: enemy.x + enemy.w / 2, y: enemy.y + 7, vx: targetDirection * 105, life: 3 });
+        audio.effect('rod');
+      } else if (enemy.state === 'attack' && enemy.timer <= 0) {
+        enemy.state = 'patrol'; enemy.vx = -targetDirection * 28;
+      }
+    }
     enemy.x += enemy.vx * dt;
-    const hasGround = staticSolids().some(solid => overlaps({ x: enemy.x, y: enemy.y + enemy.h + 3, w: enemy.w, h: 3 }, solid));
-    if (!hasGround) enemy.vx *= -1;
+    if (enemy.type !== 'skipper') {
+      const hasGround = staticSolids().some(solid => overlaps({ x: enemy.x, y: enemy.y + enemy.h + 3, w: enemy.w, h: 3 }, solid));
+      if (!hasGround) enemy.vx *= -1;
+    }
     if (overlaps(player, enemy)) {
       if (player.vy > 90) {
-        enemy.alive = false;
+        enemy.state = 'defeated'; enemy.timer = 0.55; enemy.vx = 0;
         player.vy = -300;
         audio.effect('hit');
         createParticles(enemy.x, enemy.y, '#ef6a4c', 7);
       } else damagePlayer();
     }
   }
+  for (const bubble of enemyProjectiles) {
+    bubble.x += bubble.vx * dt;
+    bubble.life -= dt;
+    if (overlaps(player, { x: bubble.x - 7, y: bubble.y - 7, w: 14, h: 14 })) { bubble.life = 0; damagePlayer(); }
+  }
+  enemyProjectiles = enemyProjectiles.filter(bubble => bubble.life > 0);
 
   for (const pickup of level.runtimePickups) {
     if (!pickup.taken && Math.hypot(player.x - pickup.x, player.y - pickup.y) < 42) {
@@ -563,6 +661,17 @@ function drawAtlasCell(image, columns, index, x, y, w, h, flip = false) {
   ctx.restore();
 }
 
+function drawAtlasGridCell(image, index, x, y, w, h, flip = false) {
+  const cellWidth = image.width / 4;
+  const cellHeight = image.height / 2;
+  const sourceX = (index % 4) * cellWidth;
+  const sourceY = Math.floor(index / 4) * cellHeight;
+  ctx.save();
+  if (flip) { ctx.translate(x + w, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, sourceY, cellWidth, cellHeight, 0, y, w, h); }
+  else ctx.drawImage(image, sourceX, sourceY, cellWidth, cellHeight, x, y, w, h);
+  ctx.restore();
+}
+
 function drawFinn() {
   let frame = 0;
   if (player.hurtTimer > 0) frame = 7;
@@ -582,8 +691,9 @@ function drawFinn() {
   const sourceY = Math.floor(frame / 4) * cellHeight + cropY;
   const landingScale = player.landingTimer > 0 ? 0.94 : 1;
   const spriteScale = 0.255;
-  const width = cropW * spriteScale / landingScale;
-  const height = cropH * spriteScale * landingScale;
+  let width = cropW * spriteScale / landingScale;
+  let height = cropH * spriteScale * landingScale;
+  if (player.crouched) { width *= player.sliding ? 1.12 : 1.04; height *= player.sliding ? 0.7 : 0.78; }
   const x = screenX(player.x + player.w / 2) - width / 2;
   const y = Math.round(player.y + player.h - height);
   ctx.save();
@@ -645,8 +755,20 @@ function draw() {
     ctx.strokeStyle = lure.color; ctx.lineWidth = 3; ctx.strokeRect(screenX(secret.x) - 13, secret.y - 13, 26, 26);
   }
   for (const enemy of level.runtimeEnemies) if (enemy.alive) {
-    const index = enemy.type === 'gull' ? 1 : Math.min(4, levelIndex);
-    drawAtlasCell(images.enemy, 5, index, screenX(enemy.x) - 14, enemy.y - 22, 60, 60, enemy.vx < 0);
+    let frame = 1 + Math.floor(elapsed * 6) % 2;
+    if (enemy.state === 'alert') frame = enemy.type === 'glowgulp' ? 4 : 3;
+    if (enemy.state === 'attack') frame = enemy.type === 'clackett' && enemy.timer > 0.35 ? 4 : 5;
+    if (enemy.state === 'defeated') frame = 7;
+    const size = enemy.type === 'clackett' ? 82 : (enemy.type === 'skipper' ? 88 : 92);
+    const drawX = screenX(enemy.x + enemy.w / 2) - size / 2;
+    const drawY = enemy.y + enemy.h - size + (enemy.type === 'skipper' ? 25 : 7);
+    drawAtlasGridCell(images[enemy.type], frame, drawX, drawY, size, size, enemy.vx < 0);
+  }
+  for (const bubble of enemyProjectiles) {
+    const x = screenX(bubble.x), y = bubble.y;
+    ctx.fillStyle = '#fff3ad88'; ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#72dfe0'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#ffffffcc'; ctx.fillRect(x - 3, y - 4, 3, 3);
   }
   for (const checkpoint of level.checkpoints) {
     const active = player.checkpoint.x >= checkpoint[0] * TILE;
@@ -693,7 +815,7 @@ function pauseGame() {
 addEventListener('keydown', event => {
   if (!keys.has(event.code)) pressed.add(event.code);
   keys.add(event.code);
-  if (['Space', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.code)) event.preventDefault();
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.code)) event.preventDefault();
   if (event.code === 'Escape') {
     if (state === 'tackle') closeTackleBox();
     else if (state === 'play') pauseGame();

@@ -28,7 +28,8 @@ function buildLevel(t,li){
   if(pattern===3){l.platforms.push([x,15,9,2],[x+12,11,5,6],[x+18,15,1,2],[x+7,7,4,1]);l.hazards.push([x+9,15,3,2],[x+17,15,1,2])}
   l.hooks.push([x+9,5+(room%2)*2],[x+16,4]);
   l.pearls.push([x+5,12],[x+9,8],[x+16,10]);
-  l.enemies.push([x+4,13,room%3===0?'gull':'crab']);
+  const enemyType=li===0?(room%3===0?'skipper':'clackett'):(li===1?'glowgulp':(room%3===0?'skipper':'clackett'));
+  l.enemies.push([x+4,13,enemyType]);
   if(room%3===1)l.movers.push([x+7,11,3,1,room%2?0:80,room%2?80:0,1.5+li*.12]);
   if(room===3||room===6||room===9)l.checkpoints.push([x+2,12]);
  }
