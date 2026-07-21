@@ -39,6 +39,7 @@ const assetPaths = {
   finn: 'assets/sprites/finn-atlas.png',
   enemy: 'assets/sprites/enemy-atlas.png',
   lures: 'assets/sprites/lure-atlas.png',
+  environment: 'assets/sprites/environment-atlas-v2.png',
   harbor: 'assets/backgrounds/harbor.png',
   grotto: 'assets/backgrounds/grotto.png',
   cliffs: 'assets/backgrounds/cliffs.png',
@@ -72,6 +73,23 @@ class AudioSystem {
     oscillator.start(start);
     oscillator.stop(start + duration);
   }
+  pluck(frequency, delay = 0, volume = 0.012) {
+    if (!soundEnabled || !this.context) return;
+    const start = this.context.currentTime + delay;
+    const oscillator = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const filter = this.context.createBiquadFilter();
+    oscillator.type = 'triangle';
+    oscillator.frequency.value = frequency;
+    filter.type = 'lowpass';
+    filter.frequency.value = 1050;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(volume, start + 0.025);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.62);
+    oscillator.connect(filter).connect(gain).connect(this.context.destination);
+    oscillator.start(start);
+    oscillator.stop(start + 0.65);
+  }
   effect(name) {
     this.start();
     const sounds = {
@@ -86,9 +104,10 @@ class AudioSystem {
 
 const audio = new AudioSystem();
 const musicScales = [
-  [262, 330, 392, 523], [220, 294, 349, 440], [196, 247, 294, 392],
-  [247, 294, 370, 494], [262, 311, 392, 622],
+  [196, 220, 262, 294, 330, 392], [174, 196, 220, 262, 294, 349], [196, 220, 247, 294, 330, 370],
+  [174, 196, 233, 262, 294, 349], [196, 233, 262, 294, 349, 392],
 ];
+const musicMelody = [0, 2, 4, 2, 1, 3, 5, 3, 0, -1, 2, 1, 4, 3, 2, -1];
 
 const isDown = (...codes) => codes.some(code => keys.has(code));
 const wasPressed = (...codes) => codes.some(code => pressed.has(code));
@@ -101,7 +120,7 @@ function persist() { localStorage.setItem('reelbound-v4', JSON.stringify(save));
 function makeRuntimeLevel() {
   level.runtimePearls = level.pearls.map(p => ({ x: p[0] * TILE + 16, y: p[1] * TILE + 16, taken: false }));
   level.runtimeEnemies = level.enemies.map((e, index) => ({
-    x: e[0] * TILE, y: e[1] * TILE, w: 30, h: 25, type: e[2],
+    x: e[0] * TILE + 4, y: e[1] * TILE + 7, w: 21, h: 16, type: e[2],
     vx: index % 2 ? 36 : -36, alive: true,
   }));
   level.runtimeMovers = level.movers.map((m, index) => ({
@@ -119,7 +138,7 @@ function makeRuntimeLevel() {
 
 function spawn(x, y, checkpoint = { x, y }) {
   player = {
-    x, y, w: 28, h: 52, vx: 0, vy: 0, facing: 1,
+    x, y: y + 8, w: 24, h: 44, vx: 0, vy: 0, facing: 1,
     grounded: false, coyote: 0, jumpBuffer: 0, jumpHeld: false,
     wallDirection: 0, hook: null, rodTimer: 0, hurtTimer: 0,
     checkpoint, riding: null, animationTime: 0, landingTimer: 0,
@@ -262,10 +281,11 @@ function updateMusic(dt) {
   if (!soundEnabled || !audio.context || state !== 'play') return;
   musicTimer -= dt;
   if (musicTimer > 0) return;
-  musicTimer = 0.22;
+  musicTimer = 0.54;
   const scale = musicScales[level.music];
-  audio.tone(scale[musicStep % scale.length], 0.16, 0.016, 'square');
-  if (musicStep % 2 === 0) audio.tone(scale[Math.floor(musicStep / 2) % scale.length] / 2, 0.2, 0.012, 'triangle');
+  const melodyIndex = musicMelody[musicStep % musicMelody.length];
+  if (melodyIndex >= 0) audio.pluck(scale[melodyIndex], 0, 0.011);
+  if (musicStep % 4 === 0) audio.pluck(scale[(musicStep / 4) % 3 | 0] / 2, 0.04, 0.007);
   musicStep++;
 }
 
@@ -484,6 +504,28 @@ function drawPlatform(platform, moving = false) {
   const w = platform.w;
   const h = platform.h;
   const theme = level.gimmick;
+  const atlasRows = {
+    boats: [72, 146], current: [260, 146], wind: [451, 145], ice: [671, 128], star: [850, 134],
+  };
+  const [sourceY, sourceHeight] = atlasRows[theme] || atlasRows.star;
+  const sourceX = moving ? 1060 : 76;
+  const sourceWidth = moving ? 390 : 202;
+  const segmentWidth = moving ? w : Math.min(96, w);
+  const visualHeight = moving ? Math.max(42, h + 14) : Math.max(48, h + 12);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x - 5, y - 3, w + 10, Math.max(h + 22, visualHeight));
+  ctx.clip();
+  if (moving) {
+    ctx.drawImage(images.environment, sourceX, sourceY, sourceWidth, sourceHeight, x - 4, y - 2, w + 8, visualHeight);
+  } else {
+    for (let offset = 0; offset < w; offset += segmentWidth - 1) {
+      const drawWidth = Math.min(segmentWidth, w - offset + 1);
+      ctx.drawImage(images.environment, sourceX, sourceY, sourceWidth, sourceHeight, x + offset, y - 2, drawWidth, visualHeight);
+    }
+  }
+  ctx.restore();
+  return;
   if (theme === 'boats') {
     ctx.fillStyle = moving ? '#72513d' : '#5b4032'; ctx.fillRect(x, y, w, h);
     ctx.fillStyle = '#c58a4a'; ctx.fillRect(x, y, w, 8);
@@ -531,16 +573,22 @@ function drawFinn() {
   const image = images.finn;
   const cellWidth = image.width / 4;
   const cellHeight = image.height / 2;
-  const sourceX = (frame % 4) * cellWidth;
-  const sourceY = Math.floor(frame / 4) * cellHeight;
+  const crops = [
+    [45, 92, 205, 390], [20, 92, 285, 390], [8, 90, 312, 392], [15, 112, 350, 355],
+    [26, 35, 292, 390], [18, 70, 300, 400], [0, 72, 382, 400], [34, 70, 330, 375],
+  ];
+  const [cropX, cropY, cropW, cropH] = crops[frame];
+  const sourceX = (frame % 4) * cellWidth + cropX;
+  const sourceY = Math.floor(frame / 4) * cellHeight + cropY;
   const landingScale = player.landingTimer > 0 ? 0.94 : 1;
-  const width = 94 / landingScale;
-  const height = 122 * landingScale;
+  const spriteScale = 0.255;
+  const width = cropW * spriteScale / landingScale;
+  const height = cropH * spriteScale * landingScale;
   const x = screenX(player.x + player.w / 2) - width / 2;
-  const y = player.y + player.h - height - 2;
+  const y = Math.round(player.y + player.h - height);
   ctx.save();
-  if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, sourceY, cellWidth, cellHeight, 0, y, width, height); }
-  else ctx.drawImage(image, sourceX, sourceY, cellWidth, cellHeight, x, y, width, height);
+  if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, sourceY, cropW, cropH, 0, y, width, height); }
+  else ctx.drawImage(image, sourceX, sourceY, cropW, cropH, x, y, width, height);
   ctx.restore();
   if (player.hook) {
     ctx.strokeStyle = LURES.find(lure => lure.id === save.equipped).color;
@@ -570,8 +618,16 @@ function draw() {
 
   for (const hazard of level.hazards) {
     const x = screenX(hazard[0] * TILE), y = hazard[1] * TILE, w = hazard[2] * TILE;
-    ctx.fillStyle = '#0a5368'; ctx.fillRect(x, y, w, hazard[3] * TILE);
-    ctx.fillStyle = '#d9f3e9'; for (let hx = 4; hx < w; hx += 24) { ctx.beginPath(); ctx.moveTo(x + hx, y + 22); ctx.lineTo(x + hx + 8, y + 4); ctx.lineTo(x + hx + 16, y + 22); ctx.fill(); }
+    const waterColors = level.gimmick === 'ice' ? ['#4c91ac', '#235e79'] : level.gimmick === 'star' ? ['#54428e', '#211d58'] : ['#167f91', '#07516d'];
+    ctx.fillStyle = waterColors[1]; ctx.fillRect(x, y + 8, w, hazard[3] * TILE - 8);
+    ctx.fillStyle = waterColors[0]; ctx.fillRect(x, y + 3, w, 13);
+    ctx.fillStyle = '#dff5e8';
+    for (let hx = -6; hx < w + 8; hx += 15) {
+      const bob = Math.round(Math.sin(elapsed * 2.2 + hx * 0.08) * 2);
+      ctx.beginPath(); ctx.arc(x + hx, y + 4 + bob, 7, 0, Math.PI); ctx.fill();
+    }
+    ctx.fillStyle = '#ffffff45';
+    for (let hx = 8; hx < w; hx += 31) ctx.fillRect(x + hx, y + 19 + (hx % 3), 13, 2);
   }
   for (const hook of level.hooks) {
     const x = screenX(hook[0] * TILE + 16), y = hook[1] * TILE + 16;
