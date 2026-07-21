@@ -18,7 +18,7 @@ const THEMES=[
  {name:'The Star-Sea',fish:'The Starwhale',bg:'starsea.png',top:'#d4b9ff',body:'#3a326b',music:4,lure:'moon',gimmick:'stars'}
 ];
 
-function baseLevel(t){return {...t,width:236,start:[2,13],goal:[231,12],platforms:[],hazards:[],hooks:[],pearls:[],enemies:[],movers:[],checkpoints:[],lurePickups:[],secrets:[],currents:[],windZones:[],signs:[]}}
+function baseLevel(t){return {...t,width:236,start:[2,13],goal:[231,12],platforms:[],hazards:[],hooks:[],pearls:[],enemies:[],movers:[],checkpoints:[],lurePickups:[],secrets:[],currents:[],windZones:[],signs:[],itemPlan:{pearls:'Pearls trace safe lines, expressive movement arcs, and optional high routes.',lure:'The world lure rests at a safe landmark before its optional caches.',caches:'Three lure caches reward exploration and mastery without blocking the main route.'}}}
 
 function buildHarbor(t){
  const l=baseLevel(t);
@@ -89,14 +89,18 @@ function buildLevel(t,li){
   if(pattern===2){l.platforms.push([x,14,5,3],[x+8,15,6,2],[x+17,13,2,4],[x+5,9,4,1],[x+13,7,3,1]);l.hazards.push([x+5,15,3,2],[x+14,15,3,2])}
   if(pattern===3){l.platforms.push([x,15,9,2],[x+12,11,5,6],[x+18,15,1,2],[x+7,7,4,1]);l.hazards.push([x+9,15,3,2],[x+17,15,1,2])}
   l.hooks.push([x+9,5+(room%2)*2],[x+16,4]);
-  l.pearls.push([x+5,12],[x+9,8],[x+16,10]);
+  if(pattern===0)l.pearls.push([x+3,13],[x+7,9],[x+13,12],[x+16,12]);
+  if(pattern===1)l.pearls.push([x+3,13],[x+7,10],[x+11,10],[x+15,10]);
+  if(pattern===2)l.pearls.push([x+2,12],[x+6,8],[x+11,13],[x+14,6],[x+17,11]);
+  if(pattern===3)l.pearls.push([x+3,13],[x+8,6],[x+10,9],[x+13,9],[x+17,13]);
   const enemyType=li===0?(room%3===0?'skipper':'clackett'):(li===1?'bloop':(room%3===0?'skipper':'clackett'));
   l.enemies.push([x+4,13,enemyType]);
   if(room%3===1)l.movers.push([x+7,11,3,1,room%2?0:80,room%2?80:0,1.5+li*.12]);
   if(room===3||room===6||room===9)l.checkpoints.push([x+2,12]);
  }
  l.platforms.push([228,15,8,2]);
- l.lurePickups.push([25+li*2,6,t.lure]);
+ const lureLandmarks=[[0,0],[24,8],[26,6],[25,9],[24,7]];
+ l.lurePickups.push([...lureLandmarks[li],t.lure]);
  l.secrets.push([46,6,t.lure],[121,5,t.lure],[198,4,t.lure]);
  l.signs.push([4,13,'RUN & JUMP','Hold to run. Tap jump for a hop; hold it for height.'],[21,12,'CAST','Tap the rod to strike or retrieve. Hold near a gold ring to grapple.'],[43,12,'TACKLE BOX','Collected lures are permanent. Open the box whenever you are safe.']);
  if(t.gimmick==='current')l.currents.push([54,3,7,12],[142,2,7,13]);

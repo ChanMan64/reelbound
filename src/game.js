@@ -29,6 +29,8 @@ const keys = new Set();
 const pressed = new Set();
 const save = JSON.parse(localStorage.getItem('reelbound-v4') || '{"unlocked":1,"lures":["classic"],"equipped":"classic","times":{}}');
 save.campaign ??= { selectedWorld: 0, clearedPrototypes: [] };
+save.caches ??= {};
+save.bestPearls ??= {};
 
 let state = 'title';
 let levelIndex = 0;
@@ -152,7 +154,10 @@ function makeRuntimeLevel() {
   level.runtimePickups = level.lurePickups.map(p => ({
     x: p[0] * TILE, y: p[1] * TILE, id: p[2], taken: save.lures.includes(p[2]),
   }));
-  level.runtimeSecrets = level.secrets.map(s => ({ x: s[0] * TILE, y: s[1] * TILE, id: s[2], taken: false }));
+  level.runtimeSecrets = level.secrets.map((s, index) => ({
+    x: s[0] * TILE, y: s[1] * TILE, id: s[2], index,
+    taken: (save.caches[levelIndex] || []).includes(index), warned: false,
+  }));
   level.signs.forEach(sign => { sign.seen = false; });
 }
 
@@ -648,11 +653,18 @@ function update(dt) {
   }
 
   for (const secret of level.runtimeSecrets) {
-    if (!secret.taken && Math.hypot(player.x - secret.x, player.y - secret.y) < 42 && save.equipped === secret.id) {
+    const secretDistance = Math.hypot(player.x - secret.x, player.y - secret.y);
+    if (!secret.taken && secretDistance < 54 && save.equipped !== secret.id && !secret.warned) {
+      secret.warned = true;
+      showTip('LURE CACHE', `Equip ${LURES.find(lure => lure.id === secret.id).name} to open it`);
+    }
+    if (!secret.taken && secretDistance < 42 && save.equipped === secret.id) {
       secret.taken = true;
-      pearls += 5;
+      save.caches[levelIndex] ??= [];
+      if (!save.caches[levelIndex].includes(secret.index)) save.caches[levelIndex].push(secret.index);
+      persist();
       audio.effect('lure');
-      showTip('SECRET CATCH', 'Special-lure pearl cache +5');
+      showTip('LURE CACHE OPENED', `${save.caches[levelIndex].length}/3 permanent discoveries found`);
       createParticles(secret.x, secret.y, LURES.find(lure => lure.id === secret.id).color, 14);
     }
   }
@@ -677,15 +689,23 @@ function update(dt) {
   pressed.clear();
 }
 
+function pearlRank(count, total) {
+  const ratio = count / Math.max(1, total);
+  if (ratio >= 0.85) return 'TIDE MASTER';
+  if (ratio >= 0.6) return 'ROUTE SCOUT';
+  return 'DECKHAND';
+}
+
 function completeLevel() {
   state = 'complete';
   save.unlocked = Math.max(save.unlocked, levelIndex + 2);
   save.times[levelIndex] = Math.min(save.times[levelIndex] || 9999, elapsed);
   const worldId = CAMPAIGN[activeWorld]?.id;
   if (worldId && !save.campaign.clearedPrototypes.includes(worldId)) save.campaign.clearedPrototypes.push(worldId);
+  save.bestPearls[levelIndex] = Math.max(save.bestPearls[levelIndex] || 0, pearls);
   persist();
   ui.title.textContent = `${level.fish} caught!`;
-  ui.copy.innerHTML = `${level.name} — ${formatTime(elapsed)} — ${pearls} pearls — ${deaths} falls`;
+  ui.copy.innerHTML = `${level.name} — ${formatTime(elapsed)} — ${pearls}/${level.pearls.length} pearls — ${pearlRank(pearls, level.pearls.length)} — ${(save.caches[levelIndex] || []).length}/3 caches`;
   ui.primary.textContent = 'RETURN TO WORLD MAP';
   ui.overlay.classList.remove('hidden');
   audio.effect('catch');
@@ -886,10 +906,20 @@ function draw() {
     drawPropCell(0, screenX(pearl.x) - 12, pearl.y - 12, 24, 24);
   }
   for (const pickup of level.runtimePickups) if (!pickup.taken) {
-    drawPropCell(4, screenX(pickup.x) - 27, pickup.y - 27, 54, 54);
+    const pickupX = screenX(pickup.x), lure = LURES.find(item => item.id === pickup.id);
+    ctx.save(); ctx.globalAlpha = .28 + Math.sin(elapsed * 4) * .08; ctx.fillStyle = lure.color;
+    ctx.beginPath(); ctx.arc(pickupX, pickup.y, 32, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    drawPropCell(4, pickupX - 27, pickup.y - 27, 54, 54);
+    ctx.fillStyle = lure.color; ctx.font = 'bold 7px DM Mono'; ctx.textAlign = 'center';
+    ctx.fillText('NEW LURE', pickupX, pickup.y - 31); ctx.textAlign = 'left';
   }
   for (const secret of level.runtimeSecrets) if (!secret.taken) {
-    drawPropCell(5, screenX(secret.x) - 22, secret.y - 22, 44, 44);
+    const secretX = screenX(secret.x), lure = LURES.find(item => item.id === secret.id);
+    ctx.save(); ctx.strokeStyle = lure.color; ctx.lineWidth = 2; ctx.globalAlpha = .75;
+    ctx.strokeRect(secretX - 19, secret.y - 19, 38, 38); ctx.restore();
+    drawPropCell(5, secretX - 22, secret.y - 22, 44, 44);
+    ctx.fillStyle = lure.color; ctx.font = 'bold 7px DM Mono'; ctx.textAlign = 'center';
+    ctx.fillText('LURE CACHE', secretX, secret.y - 25); ctx.textAlign = 'left';
   }
   for (const enemy of level.runtimeEnemies) if (enemy.alive) {
     let frame = 1 + Math.floor(elapsed * 6) % 2;
@@ -933,8 +963,8 @@ function draw() {
   for (const rivetX of [21, 537]) { ctx.beginPath(); ctx.arc(rivetX, 21, 3, 0, Math.PI * 2); ctx.fill(); }
   ctx.fillStyle = '#fff1cf'; ctx.font = 'bold 14px DM Mono'; ctx.fillText(`${levelIndex + 1}/5  ${level.name.toUpperCase()}`, 31, 39);
   ctx.fillStyle = '#78d9d0'; ctx.fillRect(29, 48, 482, 1);
-  ctx.fillStyle = LURES.find(lure => lure.id === save.equipped).color; ctx.font = '11px DM Mono';
-  ctx.fillText(`${formatTime(elapsed)}  •  PEARLS ${pearls}  •  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 31, 67);
+  ctx.fillStyle = LURES.find(lure => lure.id === save.equipped).color; ctx.font = '9px DM Mono';
+  ctx.fillText(`${formatTime(elapsed)}  •  PEARLS ${pearls}/${level.pearls.length}  •  CACHES ${(save.caches[levelIndex] || []).length}/3  •  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 31, 67);
   if (tipTimer > 0) {
     ctx.fillStyle = '#071726ed'; ctx.fillRect(205, 457, 550, 50);
     ctx.strokeStyle = '#d6b56a'; ctx.strokeRect(205, 457, 550, 50);
