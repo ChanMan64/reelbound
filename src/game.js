@@ -1,45 +1,674 @@
-import{LEVELS,TILE,LURES}from'./levels.js';
-const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d'),overlay=document.querySelector('#overlay'),title=document.querySelector('#overlay-title'),copy=document.querySelector('#overlay-copy'),primary=document.querySelector('#primary'),tackle=document.querySelector('#tackle'),grid=document.querySelector('#lure-grid'),lureDesc=document.querySelector('#lure-description');ctx.imageSmoothingEnabled=false;
-const images={},keys=new Set(),pressed=new Set(),save=JSON.parse(localStorage.getItem('reelbound-v3')||'{"unlocked":1,"lures":["classic"],"equipped":"classic","times":{}}');let state='title',levelIndex=0,level,player,camera=0,elapsed=0,deaths=0,pearls=0,last=0,tip='',tipTime=0,sound=true,particles=[],musicClock=0,musicStep=0;
-const assetPaths={finn:'assets/sprites/finn-atlas.png',enemy:'assets/sprites/enemy-atlas.png',lures:'assets/sprites/lure-atlas.png',harbor:'assets/backgrounds/harbor.png',grotto:'assets/backgrounds/grotto.png',cliffs:'assets/backgrounds/cliffs.png',icewater:'assets/backgrounds/icewater.png',starsea:'assets/backgrounds/starsea.png'};
-await Promise.all(Object.entries(assetPaths).map(([k,src])=>new Promise((ok,fail)=>{const im=new Image;im.onload=()=>{images[k]=im;ok()};im.onerror=fail;im.src=src})));
-class Sound{constructor(){this.ctx=null}start(){this.ctx??=new AudioContext;if(this.ctx.state==='suspended')this.ctx.resume()}tone(f,d=.08,v=.035,type='square',when=0){if(!sound||!this.ctx)return;const o=this.ctx.createOscillator(),g=this.ctx.createGain(),t=this.ctx.currentTime+when;o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(this.ctx.destination);o.start(t);o.stop(t+d)}fx(name){this.start();const m={jump:[420,.09],coin:[820,.1],rod:[240,.06],hit:[110,.12],hurt:[80,.28],catch:[660,.4],lure:[520,.3],check:[700,.2],menu:[360,.06]};const a=m[name]||m.menu;this.tone(a[0],a[1],.045,name==='hurt'?'sawtooth':'square')}}const audio=new Sound;
-const SCALES=[[262,330,392,523],[220,294,349,440],[196,247,294,392],[247,294,370,494],[262,311,392,622]];
-function music(dt){if(!sound||!audio.ctx||state!=='play')return;musicClock-=dt;if(musicClock<=0){musicClock=.22;const s=SCALES[level.music],n=s[musicStep%s.length],bass=s[(musicStep>>1)%s.length]/2;audio.tone(n,.16,.018,'square');if(musicStep%2===0)audio.tone(bass,.2,.014,'triangle');musicStep++}}
-const down=(...c)=>c.some(k=>keys.has(k)),hit=(...c)=>c.some(k=>pressed.has(k)),rects=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y,fmt=s=>`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
-function runtime(){level._pearls=level.pearls.map(p=>({x:p[0]*TILE+16,y:p[1]*TILE+16,taken:false}));level._enemies=level.enemies.map((e,i)=>({x:e[0]*TILE,y:e[1]*TILE,w:28,h:24,type:e[2],vx:i%2?42:-42,alive:true}));level._movers=level.movers.map((m,i)=>({x:m[0]*TILE,y:m[1]*TILE,w:m[2]*TILE,h:m[3]*TILE,bx:m[0]*TILE,by:m[1]*TILE,dx:m[4],dy:m[5],speed:m[6],phase:i,lastX:m[0]*TILE}));level._pickups=level.lurePickups.map(p=>({x:p[0]*TILE,y:p[1]*TILE,id:p[2],taken:save.lures.includes(p[2])}));level._secrets=level.secrets.map(s=>({x:s[0]*TILE,y:s[1]*TILE,id:s[2],taken:false}));for(const s of level.signs)s.seen=false}
-function spawn(x,y,checkpoint={x,y}){player={x,y,w:28,h:52,vx:0,vy:0,ground:false,coyote:0,buffer:0,face:1,wall:0,hook:null,attack:0,hurt:0,slam:false,checkpoint}}
-function start(i=0){levelIndex=i;level=LEVELS[i];runtime();spawn(level.start[0]*TILE,level.start[1]*TILE);camera=elapsed=deaths=pearls=musicStep=0;particles=[];tip='';tipTime=0;state='play';overlay.classList.add('hidden');tackle.classList.add('hidden');audio.start();renderLures()}
-function solids(){return[...level.platforms.map(p=>({x:p[0]*TILE,y:p[1]*TILE,w:p[2]*TILE,h:p[3]*TILE,type:'ground'})),...level._movers.map(m=>({...m,type:'mover'}))]}
-function move(axis,n){player[axis]+=n;let side=0,land=false;for(const r of solids())if(rects(player,r)){if(axis==='x'){player.x=n>0?r.x-player.w:r.x+r.w;side=n>0?1:-1;player.vx=0}else{player.y=n>0?r.y-player.h:r.y+r.h;if(n>0){land=player.ground=true;if(r.type==='mover')player.x+=r.x-r.lastX}player.vy=0}}return{side,land}}
-function puff(x,y,c='#fff1cf',n=5){for(let i=0;i<n;i++)particles.push({x,y,vx:(Math.random()-.5)*100,vy:-30-Math.random()*80,t:.45,c})}
-function showTip(a,b){tip=`${a} — ${b}`;tipTime=4}
-function hurt(){if(player.hurt>0)return;deaths++;audio.fx('hurt');puff(player.x+14,player.y+25,'#ef6a4c',10);const cp={...player.checkpoint};spawn(cp.x,cp.y,cp);player.hurt=1}
-function nearest(list,range,filter=()=>true){let best=null,d=range;for(const o of list)if(filter(o)){const q=Math.hypot((o.x||0)-player.x,(o.y||0)-player.y);if(q<d){d=q;best=o}}return best}
-function cast(){const lure=save.equipped,range=lure==='magnet'?300:220;if(lure==='anchor'&&!player.ground){player.slam=true;player.vy=650;audio.fx('rod');return}const hs=level.hooks.map(h=>({x:h[0]*TILE+16,y:h[1]*TILE+16}));if(lure==='moon')for(const p of level._pearls)if(!p.taken)hs.push(p);const h=nearest(hs,range);if(h){player.hook=h;audio.fx('rod');return}const e=nearest(level._enemies,range,o=>o.alive&&Math.sign(o.x-player.x)===player.face);if(e){e.alive=false;player.vx-=player.face*35;audio.fx('hit');puff(e.x,e.y,'#ffbd47',8);if(lure==='storm')for(const o of level._enemies)if(o.alive&&Math.hypot(o.x-e.x,o.y-e.y)<140){o.alive=false;puff(o.x,o.y,'#f2d45c',6)}return}player.attack=.22;audio.fx('rod')}
-function update(dt){music(dt);if(state!=='play')return;elapsed+=dt;tipTime=Math.max(0,tipTime-dt);player.hurt=Math.max(0,player.hurt-dt);player.attack=Math.max(0,player.attack-dt);for(const m of level._movers){m.lastX=m.x;const q=(Math.sin(elapsed*m.speed+m.phase)+1)/2;m.x=m.bx+m.dx*q;m.y=m.by+m.dy*q}
- const ix=(down('KeyD','ArrowRight')?1:0)-(down('KeyA','ArrowLeft')?1:0),jumpHit=hit('Space','KeyZ','ArrowUp'),jumpHeld=down('Space','KeyZ','ArrowUp'),rodHeld=down('KeyE','KeyX');if(ix)player.face=ix;if(jumpHit)player.buffer=.14;else player.buffer=Math.max(0,player.buffer-dt);player.coyote=player.ground?.12:Math.max(0,player.coyote-dt);
- if(hit('KeyE','KeyX'))cast();if(player.hook&&!rodHeld)player.hook=null;if(hit('Tab','KeyT'))openTackle();
- if(player.buffer>0&&(player.coyote>0||player.wall)){player.vy=-420;if(player.wall){player.vx=-player.wall*250;player.face=-player.wall}audio.fx('jump');puff(player.x+14,player.y+50,'#e9f4dc');player.buffer=player.coyote=0;player.ground=false}
- const accel=player.ground?1250:720,friction=level.gimmick==='ice'?.92:(player.ground?.76:.94);player.vx=(player.vx+ix*accel*dt)*Math.pow(friction,dt*10);player.vx=Math.max(-225,Math.min(225,player.vx));player.vy+=1050*dt;if(!jumpHeld&&player.vy<-160)player.vy+=1000*dt;if(save.equipped==='bubble'&&rodHeld&&player.vy>80)player.vy=Math.min(player.vy,115);
- if(player.hook){const dx=player.hook.x-player.x-14,dy=player.hook.y-player.y-12,d=Math.hypot(dx,dy);player.vx+=dx/d*560*dt;player.vy+=dy/d*560*dt;if(d>250)player.hook=null}
- for(const c of level.currents)if(rects(player,{x:c[0]*TILE,y:c[1]*TILE,w:c[2]*TILE,h:c[3]*TILE}))player.vy-=520*dt;for(const z of level.windZones)if(rects(player,{x:z[0]*TILE,y:z[1]*TILE,w:z[2]*TILE,h:z[3]*TILE}))player.vx+=z[4]*dt;
- player.ground=false;const mx=move('x',player.vx*dt);player.wall=mx.side;const before=player.vy,my=move('y',player.vy*dt);if(my.land&&player.slam){player.slam=false;puff(player.x+14,player.y+52,'#9ab7c5',12);audio.fx('hit')}if(player.y>560)hurt();for(const h of level.hazards)if(rects(player,{x:h[0]*TILE,y:h[1]*TILE,w:h[2]*TILE,h:h[3]*TILE}))hurt();
- for(const c of level.checkpoints)if(player.x>c[0]*TILE&&player.checkpoint.x<c[0]*TILE){player.checkpoint={x:c[0]*TILE,y:c[1]*TILE};audio.fx('check');showTip('CHECKPOINT','Pip lit the harbor lantern')}
- for(const p of level._pearls)if(!p.taken&&Math.hypot(player.x-p.x,player.y-p.y)<32){p.taken=true;pearls+=save.equipped==='golden'?2:1;audio.fx('coin');puff(p.x,p.y)}if(save.equipped==='magnet')for(const p of level._pearls)if(!p.taken&&Math.hypot(player.x-p.x,player.y-p.y)<150){p.x+=(player.x-p.x)*dt*4;p.y+=(player.y-p.y)*dt*4}
- for(const e of level._enemies){if(!e.alive)continue;e.x+=e.vx*dt;const ground=solids().some(r=>rects({x:e.x,y:e.y+e.h+3,w:e.w,h:3},r));if(!ground)e.vx*=-1;if(rects(player,e)){if(before>100){e.alive=false;player.vy=-300;audio.fx('hit');puff(e.x,e.y,'#ef6a4c',7)}else hurt()}}
- for(const p of level._pickups)if(!p.taken&&Math.hypot(player.x-p.x,player.y-p.y)<42){p.taken=true;if(!save.lures.includes(p.id))save.lures.push(p.id);save.equipped=p.id;persist();audio.fx('lure');showTip('NEW LURE',LURES.find(l=>l.id===p.id).name);renderLures()}
- for(const s of level._secrets)if(!s.taken&&Math.hypot(player.x-s.x,player.y-s.y)<40&&save.equipped===s.id){s.taken=true;pearls+=5;audio.fx('lure');showTip('SECRET CATCH','Special-lure pearl cache +5');puff(s.x,s.y,LURES.find(l=>l.id===s.id).color,14)}for(const s of level.signs)if(!s.seen&&Math.abs(player.x-s[0]*TILE)<45){s.seen=true;showTip(s[2],s[3])}
- if(rects(player,{x:level.goal[0]*TILE,y:level.goal[1]*TILE,w:48,h:70}))complete();camera+=(Math.max(0,Math.min(level.width*TILE-960,player.x-360))-camera)*Math.min(1,dt*5);for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=220*dt;p.t-=dt}particles=particles.filter(p=>p.t>0);pressed.clear()}
-function persist(){localStorage.setItem('reelbound-v3',JSON.stringify(save))}
-function complete(){state='complete';save.unlocked=Math.max(save.unlocked,levelIndex+2);save.times[levelIndex]=Math.min(save.times[levelIndex]||9999,elapsed);persist();title.textContent=`${level.fish} caught!`;copy.innerHTML=`${level.name} — ${fmt(elapsed)} — ${pearls} pearls — ${deaths} falls`;primary.textContent=levelIndex===4?'VIEW TACKLE LOG':'NEXT VOYAGE';overlay.classList.remove('hidden');audio.fx('catch')}
-function renderLures(){grid.innerHTML='';for(const [i,l]of LURES.entries()){const b=document.createElement('button'),owned=save.lures.includes(l.id);b.className=`lure ${owned?'':'locked'} ${save.equipped===l.id?'equipped':''}`;b.innerHTML=`<span class="icon" style="background-position:${i*100/7}% 50%"></span><span>${owned?l.name:'???'}</span>`;b.disabled=!owned;b.onclick=()=>{save.equipped=l.id;persist();lureDesc.textContent=l.desc;renderLures();audio.fx('menu')};grid.append(b)}}
-function openTackle(){if(state!=='play')return;state='tackle';renderLures();const l=LURES.find(x=>x.id===save.equipped);lureDesc.textContent=l.desc;tackle.classList.remove('hidden');audio.fx('menu')}function closeTackle(){if(state!=='tackle')return;state='play';tackle.classList.add('hidden');keys.clear()}
-function px(x,y,w,h,c){ctx.fillStyle=c;ctx.fillRect(Math.round(x-camera),Math.round(y),w,h)}
-function drawAtlasActors(){const ei=images.enemy,ecw=ei.width/5;for(const e of level._enemies)if(e.alive){const idx=e.type==='gull'?1:Math.min(4,levelIndex);ctx.drawImage(ei,idx*ecw,0,ecw,ei.height,e.x-camera-13,e.y-18,58,58)}const li=images.lures,lcw=li.width/8;for(const p of level._pickups)if(!p.taken){const idx=LURES.findIndex(l=>l.id===p.id);ctx.drawImage(li,idx*lcw,0,lcw,li.height,p.x-camera-24,p.y-24,48,48)}}
-function drawPlayer(){drawAtlasActors();let frame=0;if(player.hurt>0)frame=7;else if(player.attack>0||player.hook)frame=6;else if(!player.ground)frame=player.vy<0?4:5;else if(Math.abs(player.vx)>30)frame=Math.abs(player.vx)>175?3:1+Math.floor(elapsed*7)%2;const im=images.finn,cw=im.width/4,ch=im.height/2,sx=(frame%4)*cw,sy=Math.floor(frame/4)*ch;ctx.save();const dx=Math.round(player.x-camera-35),dy=Math.round(player.y-66);if(player.face<0){ctx.translate(dx+98,0);ctx.scale(-1,1);ctx.drawImage(im,sx,sy,cw,ch,0,dy,98,126)}else ctx.drawImage(im,sx,sy,cw,ch,dx,dy,98,126);ctx.restore();if(player.hook){ctx.strokeStyle=LURES.find(l=>l.id===save.equipped).color;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(player.x+14-camera,player.y+12);ctx.quadraticCurveTo((player.x+player.hook.x)/2-camera,player.y+60,player.hook.x-camera,player.hook.y);ctx.stroke()}}
-function draw(){if(!level){ctx.fillStyle='#071726';ctx.fillRect(0,0,960,540);return}const bg=images[level.bg.split('.')[0]];ctx.drawImage(bg,-(camera*.08)%(bg.width/2),0,960,540);ctx.fillStyle='#07172644';ctx.fillRect(0,0,960,540);for(const c of level.currents){for(let i=0;i<8;i++)px(c[0]*TILE+12+(i%3)*55,c[1]*TILE+((elapsed*70+i*71)%(c[3]*TILE)),5,18,'#78e4d288')}for(const p of level.platforms){const[x,y,w,h]=p;px(x*TILE,y*TILE,w*TILE,h*TILE,level.body);px(x*TILE,y*TILE,w*TILE,7,level.top);for(let q=0;q<w;q++)px((x+q)*TILE+5,y*TILE+14,20,4,'#ffffff18')}for(const m of level._movers){px(m.x,m.y,m.w,m.h,'#644936');px(m.x,m.y,m.w,7,level.top)}for(const h of level.hazards){px(h[0]*TILE,h[1]*TILE,h[2]*TILE,h[3]*TILE,'#0d546b');for(let q=0;q<h[2];q++)px((h[0]+q)*TILE+3,h[1]*TILE+5,24,4,'#d7f4ea')}for(const h of level.hooks){const x=h[0]*TILE+16,y=h[1]*TILE+16;px(x-7,y-7,14,14,'#f4c755');px(x-3,y-3,6,6,'#6b4833')}for(const p of level._pearls)if(!p.taken){px(p.x-6,p.y-6,12,12,'#fff5d6');px(p.x-2,p.y-9,4,3,'#7ed9d1')}for(const p of level._pickups)if(!p.taken){const l=LURES.find(x=>x.id===p.id);px(p.x-14,p.y-14,28,28,l.color);px(p.x-6,p.y-6,12,12,'#071726')}for(const s of level._secrets)if(!s.taken){const l=LURES.find(x=>x.id===s.id);px(s.x-13,s.y-13,26,26,'#071726aa');ctx.strokeStyle=l.color;ctx.strokeRect(s.x-camera-13,s.y-13,26,26)}for(const e of level._enemies)if(e.alive){px(e.x,e.y+8,28,16,e.type==='gull'?'#e8e0c3':'#e65e48');px(e.x+5,e.y+2,5,8,'#f2b950');px(e.x+18,e.y+2,5,8,'#f2b950')}for(const c of level.checkpoints){const on=player.checkpoint.x>=c[0]*TILE;px(c[0]*TILE+10,c[1]*TILE-10,5,45,'#815b3c');px(c[0]*TILE+15,c[1]*TILE-8,20,15,on?'#72e2bd':'#8b8b83')}for(const s of level.signs){px(s[0]*TILE,s[1]*TILE,6,30,'#6f4e3c');px(s[0]*TILE-8,s[1]*TILE-7,28,15,'#b47b45')}for(const p of particles)px(p.x,p.y,4,4,p.c);const gx=level.goal[0]*TILE,gy=level.goal[1]*TILE+16;ctx.fillStyle='#7ed9d1';ctx.beginPath();ctx.ellipse(gx-camera,gy,28+Math.sin(elapsed*4)*3,15,0,0,Math.PI*2);ctx.fill();px(gx+15,gy-4,12,8,'#ef8a53');drawPlayer();ctx.fillStyle='#071726dd';ctx.fillRect(14,14,510,60);ctx.fillStyle='#fff1cf';ctx.font='bold 14px DM Mono';ctx.fillText(`${levelIndex+1}/5  ${level.name.toUpperCase()}`,27,37);ctx.fillStyle=LURES.find(l=>l.id===save.equipped).color;ctx.font='11px DM Mono';ctx.fillText(`${fmt(elapsed)}  ·  PEARLS ${pearls}  ·  ${LURES.find(l=>l.id===save.equipped).name.toUpperCase()}`,27,59);if(tipTime>0){ctx.fillStyle='#071726ed';ctx.fillRect(205,457,550,50);ctx.strokeStyle='#d6b56a';ctx.strokeRect(205,457,550,50);ctx.fillStyle='#fff1cf';ctx.textAlign='center';ctx.font='bold 11px DM Mono';ctx.fillText(tip,480,487);ctx.textAlign='left'}}
-function loop(t){const dt=Math.min(.033,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
-addEventListener('keydown',e=>{if(!keys.has(e.code))pressed.add(e.code);keys.add(e.code);if(['Space','ArrowUp','ArrowLeft','ArrowRight','Tab'].includes(e.code))e.preventDefault();if(e.code==='Escape'){if(state==='tackle')closeTackle();else if(state==='play'){state='paused';title.textContent='Lines slackened';copy.textContent='The tide will wait.';primary.textContent='RESUME';overlay.classList.remove('hidden')}}});addEventListener('keyup',e=>keys.delete(e.code));
-for(const b of document.querySelectorAll('[data-key]')){const k=b.dataset.key,on=e=>{e.preventDefault();if(!keys.has(k))pressed.add(k);keys.add(k);b.classList.add('active')},off=e=>{e.preventDefault();keys.delete(k);b.classList.remove('active')};b.onpointerdown=on;b.onpointerup=off;b.onpointercancel=off;b.onpointerleave=off}for(const b of document.querySelectorAll('[data-level]'))b.onclick=()=>start(Number(b.dataset.level));document.querySelector('#touch-tackle').onclick=openTackle;document.querySelector('#close-tackle').onclick=closeTackle;
-primary.onclick=()=>{if(state==='title')start(0);else if(state==='paused'){state='play';overlay.classList.add('hidden')}else if(state==='complete'){levelIndex<4?start(levelIndex+1):(location.reload())}};document.querySelector('#sound').onclick=e=>{sound=!sound;if(sound)audio.start();e.target.textContent=`MUSIC + SFX: ${sound?'ON':'OFF'}`};document.addEventListener('visibilitychange',()=>{if(document.hidden&&state==='play'){state='paused';overlay.classList.remove('hidden')}});renderLures();requestAnimationFrame(loop);
+import { LEVELS, TILE, LURES } from './levels.js';
+
+const canvas = document.querySelector('#game');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const ui = {
+  overlay: document.querySelector('#overlay'),
+  title: document.querySelector('#overlay-title'),
+  copy: document.querySelector('#overlay-copy'),
+  primary: document.querySelector('#primary'),
+  tackle: document.querySelector('#tackle'),
+  grid: document.querySelector('#lure-grid'),
+  lureDescription: document.querySelector('#lure-description'),
+};
+
+const images = {};
+const keys = new Set();
+const pressed = new Set();
+const save = JSON.parse(localStorage.getItem('reelbound-v4') || '{"unlocked":1,"lures":["classic"],"equipped":"classic","times":{}}');
+
+let state = 'title';
+let levelIndex = 0;
+let level;
+let player;
+let camera = 0;
+let elapsed = 0;
+let deaths = 0;
+let pearls = 0;
+let lastTime = 0;
+let tip = '';
+let tipTimer = 0;
+let soundEnabled = true;
+let musicTimer = 0;
+let musicStep = 0;
+let particles = [];
+
+const assetPaths = {
+  finn: 'assets/sprites/finn-atlas.png',
+  enemy: 'assets/sprites/enemy-atlas.png',
+  lures: 'assets/sprites/lure-atlas.png',
+  harbor: 'assets/backgrounds/harbor.png',
+  grotto: 'assets/backgrounds/grotto.png',
+  cliffs: 'assets/backgrounds/cliffs.png',
+  icewater: 'assets/backgrounds/icewater.png',
+  starsea: 'assets/backgrounds/starsea.png',
+};
+
+await Promise.all(Object.entries(assetPaths).map(([key, src]) => new Promise((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => { images[key] = image; resolve(); };
+  image.onerror = reject;
+  image.src = src;
+})));
+
+class AudioSystem {
+  constructor() { this.context = null; }
+  start() {
+    this.context ??= new AudioContext();
+    if (this.context.state === 'suspended') this.context.resume();
+  }
+  tone(frequency, duration = 0.08, volume = 0.035, type = 'square', delay = 0) {
+    if (!soundEnabled || !this.context) return;
+    const oscillator = this.context.createOscillator();
+    const gain = this.context.createGain();
+    const start = this.context.currentTime + delay;
+    oscillator.type = type;
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(volume, start);
+    gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+    oscillator.connect(gain).connect(this.context.destination);
+    oscillator.start(start);
+    oscillator.stop(start + duration);
+  }
+  effect(name) {
+    this.start();
+    const sounds = {
+      jump: [430, 0.09], land: [120, 0.05], rod: [250, 0.06], hit: [105, 0.11],
+      hurt: [78, 0.25], pearl: [820, 0.1], lure: [540, 0.28], checkpoint: [700, 0.2],
+      menu: [350, 0.06], catch: [660, 0.4],
+    };
+    const [frequency, duration] = sounds[name] || sounds.menu;
+    this.tone(frequency, duration, 0.042, name === 'hurt' ? 'sawtooth' : 'square');
+  }
+}
+
+const audio = new AudioSystem();
+const musicScales = [
+  [262, 330, 392, 523], [220, 294, 349, 440], [196, 247, 294, 392],
+  [247, 294, 370, 494], [262, 311, 392, 622],
+];
+
+const isDown = (...codes) => codes.some(code => keys.has(code));
+const wasPressed = (...codes) => codes.some(code => pressed.has(code));
+const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+const approach = (value, target, amount) => value < target ? Math.min(value + amount, target) : Math.max(value - amount, target);
+const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+
+function persist() { localStorage.setItem('reelbound-v4', JSON.stringify(save)); }
+
+function makeRuntimeLevel() {
+  level.runtimePearls = level.pearls.map(p => ({ x: p[0] * TILE + 16, y: p[1] * TILE + 16, taken: false }));
+  level.runtimeEnemies = level.enemies.map((e, index) => ({
+    x: e[0] * TILE, y: e[1] * TILE, w: 30, h: 25, type: e[2],
+    vx: index % 2 ? 36 : -36, alive: true,
+  }));
+  level.runtimeMovers = level.movers.map((m, index) => ({
+    x: m[0] * TILE, y: m[1] * TILE, w: m[2] * TILE, h: m[3] * TILE,
+    baseX: m[0] * TILE, baseY: m[1] * TILE, travelX: m[4], travelY: m[5],
+    speed: m[6], phase: index * 0.83, previousX: m[0] * TILE, previousY: m[1] * TILE,
+    deltaX: 0, deltaY: 0,
+  }));
+  level.runtimePickups = level.lurePickups.map(p => ({
+    x: p[0] * TILE, y: p[1] * TILE, id: p[2], taken: save.lures.includes(p[2]),
+  }));
+  level.runtimeSecrets = level.secrets.map(s => ({ x: s[0] * TILE, y: s[1] * TILE, id: s[2], taken: false }));
+  level.signs.forEach(sign => { sign.seen = false; });
+}
+
+function spawn(x, y, checkpoint = { x, y }) {
+  player = {
+    x, y, w: 28, h: 52, vx: 0, vy: 0, facing: 1,
+    grounded: false, coyote: 0, jumpBuffer: 0, jumpHeld: false,
+    wallDirection: 0, hook: null, rodTimer: 0, hurtTimer: 0,
+    checkpoint, riding: null, animationTime: 0, landingTimer: 0,
+  };
+}
+
+function startLevel(index = 0) {
+  levelIndex = index;
+  level = LEVELS[index];
+  makeRuntimeLevel();
+  spawn(level.start[0] * TILE, level.start[1] * TILE);
+  camera = elapsed = deaths = pearls = musicStep = 0;
+  musicTimer = 0;
+  tip = '';
+  tipTimer = 0;
+  particles = [];
+  state = 'play';
+  ui.overlay.classList.add('hidden');
+  ui.tackle.classList.add('hidden');
+  audio.start();
+  renderLureMenu();
+}
+
+function staticSolids() {
+  return level.platforms.map((p, index) => ({
+    x: p[0] * TILE, y: p[1] * TILE, w: p[2] * TILE, h: p[3] * TILE,
+    kind: 'static', id: index,
+  }));
+}
+
+function allSolids() { return [...staticSolids(), ...level.runtimeMovers.map(m => ({ ...m, kind: 'mover', source: m }))]; }
+
+function updateMovingPlatforms() {
+  for (const mover of level.runtimeMovers) {
+    mover.previousX = mover.x;
+    mover.previousY = mover.y;
+    const travel = (Math.sin(elapsed * mover.speed + mover.phase) + 1) / 2;
+    mover.x = mover.baseX + mover.travelX * travel;
+    mover.y = mover.baseY + mover.travelY * travel;
+    mover.deltaX = mover.x - mover.previousX;
+    mover.deltaY = mover.y - mover.previousY;
+  }
+  if (player.riding) {
+    player.x += player.riding.deltaX;
+    player.y += player.riding.deltaY;
+  }
+}
+
+function movePlayerAxis(axis, distance) {
+  const steps = Math.max(1, Math.ceil(Math.abs(distance) / 4));
+  const amount = distance / steps;
+  let side = 0;
+  let landedOn = null;
+  for (let step = 0; step < steps; step++) {
+    player[axis] += amount;
+    for (const solid of allSolids()) {
+      if (!overlaps(player, solid)) continue;
+      if (axis === 'x') {
+        player.x = amount > 0 ? solid.x - player.w : solid.x + solid.w;
+        side = amount > 0 ? 1 : -1;
+        player.vx = 0;
+      } else {
+        if (amount > 0) {
+          player.y = solid.y - player.h;
+          landedOn = solid.kind === 'mover' ? solid.source : null;
+          player.grounded = true;
+        } else {
+          player.y = solid.y + solid.h;
+        }
+        player.vy = 0;
+      }
+    }
+  }
+  return { side, landedOn };
+}
+
+function createParticles(x, y, color = '#fff1cf', count = 5) {
+  for (let i = 0; i < count; i++) particles.push({
+    x, y, vx: (Math.random() - 0.5) * 90, vy: -20 - Math.random() * 70,
+    life: 0.4 + Math.random() * 0.2, color,
+  });
+}
+
+function showTip(heading, body) { tip = `${heading} — ${body}`; tipTimer = 4; }
+
+function damagePlayer() {
+  if (player.hurtTimer > 0) return;
+  const checkpoint = { ...player.checkpoint };
+  deaths++;
+  audio.effect('hurt');
+  createParticles(player.x + player.w / 2, player.y + player.h / 2, '#ef6a4c', 10);
+  spawn(checkpoint.x, checkpoint.y, checkpoint);
+  player.hurtTimer = 1;
+}
+
+function nearestTarget(list, range, filter = () => true) {
+  let target = null;
+  let bestDistance = range;
+  for (const item of list) {
+    if (!filter(item)) continue;
+    const distance = Math.hypot(item.x - player.x, item.y - player.y);
+    if (distance < bestDistance) { target = item; bestDistance = distance; }
+  }
+  return target;
+}
+
+function castRod() {
+  const lure = save.equipped;
+  const range = lure === 'magnet' ? 290 : 220;
+  const hookTargets = level.hooks.map(h => ({ x: h[0] * TILE + 16, y: h[1] * TILE + 16 }));
+  if (lure === 'moon') hookTargets.push(...level.runtimePearls.filter(p => !p.taken));
+  const hook = nearestTarget(hookTargets, range);
+  if (hook) {
+    player.hook = hook;
+    player.rodTimer = 0.2;
+    audio.effect('rod');
+    return;
+  }
+  const enemy = nearestTarget(level.runtimeEnemies, range, e => e.alive && Math.sign(e.x - player.x) === player.facing);
+  if (enemy) {
+    enemy.alive = false;
+    player.rodTimer = 0.24;
+    audio.effect('hit');
+    createParticles(enemy.x + 15, enemy.y + 12, '#ffbd47', 8);
+    if (lure === 'storm') {
+      for (const chained of level.runtimeEnemies) {
+        if (chained.alive && Math.hypot(chained.x - enemy.x, chained.y - enemy.y) < 150) {
+          chained.alive = false;
+          createParticles(chained.x, chained.y, '#f2d45c', 6);
+        }
+      }
+    }
+    return;
+  }
+  player.rodTimer = 0.22;
+  audio.effect('rod');
+}
+
+function updateMusic(dt) {
+  if (!soundEnabled || !audio.context || state !== 'play') return;
+  musicTimer -= dt;
+  if (musicTimer > 0) return;
+  musicTimer = 0.22;
+  const scale = musicScales[level.music];
+  audio.tone(scale[musicStep % scale.length], 0.16, 0.016, 'square');
+  if (musicStep % 2 === 0) audio.tone(scale[Math.floor(musicStep / 2) % scale.length] / 2, 0.2, 0.012, 'triangle');
+  musicStep++;
+}
+
+function update(dt) {
+  updateMusic(dt);
+  if (state !== 'play') return;
+  elapsed += dt;
+  tipTimer = Math.max(0, tipTimer - dt);
+  player.hurtTimer = Math.max(0, player.hurtTimer - dt);
+  player.rodTimer = Math.max(0, player.rodTimer - dt);
+  player.landingTimer = Math.max(0, player.landingTimer - dt);
+  player.animationTime += dt;
+  updateMovingPlatforms();
+
+  const direction = (isDown('KeyD', 'ArrowRight') ? 1 : 0) - (isDown('KeyA', 'ArrowLeft') ? 1 : 0);
+  const jumpPressed = wasPressed('Space', 'KeyZ', 'ArrowUp');
+  const jumpHeld = isDown('Space', 'KeyZ', 'ArrowUp');
+  const rodHeld = isDown('KeyE', 'KeyX');
+  if (direction) player.facing = direction;
+  if (jumpPressed) player.jumpBuffer = 0.13;
+  else player.jumpBuffer = Math.max(0, player.jumpBuffer - dt);
+  player.coyote = player.grounded ? 0.12 : Math.max(0, player.coyote - dt);
+
+  if (wasPressed('KeyE', 'KeyX')) castRod();
+  if (player.hook && !rodHeld) player.hook = null;
+  if (wasPressed('Tab', 'KeyT')) openTackleBox();
+
+  if (player.jumpBuffer > 0 && (player.coyote > 0 || player.wallDirection)) {
+    if (player.wallDirection && !player.grounded) {
+      player.vx = -player.wallDirection * 245;
+      player.facing = -player.wallDirection;
+    }
+    player.vy = -425;
+    player.grounded = false;
+    player.riding = null;
+    player.jumpBuffer = 0;
+    player.coyote = 0;
+    player.jumpHeld = true;
+    audio.effect('jump');
+    createParticles(player.x + player.w / 2, player.y + player.h, '#e9f4dc', 5);
+  }
+
+  const maxSpeed = 205;
+  const acceleration = player.grounded ? 1050 : 620;
+  const deceleration = level.gimmick === 'ice' ? 260 : (player.grounded ? 1350 : 180);
+  player.vx = direction ? approach(player.vx, direction * maxSpeed, acceleration * dt) : approach(player.vx, 0, deceleration * dt);
+  player.vy += 1120 * dt;
+  if (!jumpHeld && player.jumpHeld && player.vy < -150) player.vy += 1350 * dt;
+  if (player.vy >= 0) player.jumpHeld = false;
+  if (save.equipped === 'bubble' && rodHeld && player.vy > 90) player.vy = Math.min(player.vy, 120);
+
+  if (player.hook) {
+    const dx = player.hook.x - (player.x + player.w / 2);
+    const dy = player.hook.y - (player.y + 12);
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    player.vx += (dx / distance) * 500 * dt;
+    player.vy += (dy / distance) * 500 * dt;
+    if (distance > 250) player.hook = null;
+  }
+
+  for (const current of level.currents) {
+    if (overlaps(player, { x: current[0] * TILE, y: current[1] * TILE, w: current[2] * TILE, h: current[3] * TILE })) player.vy -= 500 * dt;
+  }
+  for (const wind of level.windZones) {
+    if (overlaps(player, { x: wind[0] * TILE, y: wind[1] * TILE, w: wind[2] * TILE, h: wind[3] * TILE })) player.vx += wind[4] * dt;
+  }
+
+  const wasFalling = player.vy > 170;
+  player.grounded = false;
+  player.riding = null;
+  const horizontal = movePlayerAxis('x', player.vx * dt);
+  player.wallDirection = horizontal.side;
+  const vertical = movePlayerAxis('y', player.vy * dt);
+  player.riding = vertical.landedOn;
+  if (player.grounded && wasFalling) {
+    player.landingTimer = 0.1;
+    audio.effect('land');
+    createParticles(player.x + player.w / 2, player.y + player.h, '#d8e3d8', 4);
+  }
+
+  if (player.y > 570) damagePlayer();
+  for (const hazard of level.hazards) {
+    if (overlaps(player, { x: hazard[0] * TILE, y: hazard[1] * TILE, w: hazard[2] * TILE, h: hazard[3] * TILE })) damagePlayer();
+  }
+
+  for (const checkpoint of level.checkpoints) {
+    if (player.x > checkpoint[0] * TILE && player.checkpoint.x < checkpoint[0] * TILE) {
+      player.checkpoint = { x: checkpoint[0] * TILE, y: checkpoint[1] * TILE };
+      audio.effect('checkpoint');
+      showTip('CHECKPOINT', 'Pip lit the harbor lantern');
+    }
+  }
+
+  for (const pearl of level.runtimePearls) {
+    if (!pearl.taken && Math.hypot(player.x - pearl.x, player.y - pearl.y) < 32) {
+      pearl.taken = true;
+      pearls += save.equipped === 'golden' ? 2 : 1;
+      audio.effect('pearl');
+      createParticles(pearl.x, pearl.y);
+    }
+    if (!pearl.taken && save.equipped === 'magnet' && Math.hypot(player.x - pearl.x, player.y - pearl.y) < 150) {
+      pearl.x += (player.x - pearl.x) * dt * 4;
+      pearl.y += (player.y - pearl.y) * dt * 4;
+    }
+  }
+
+  for (const enemy of level.runtimeEnemies) {
+    if (!enemy.alive) continue;
+    enemy.x += enemy.vx * dt;
+    const hasGround = staticSolids().some(solid => overlaps({ x: enemy.x, y: enemy.y + enemy.h + 3, w: enemy.w, h: 3 }, solid));
+    if (!hasGround) enemy.vx *= -1;
+    if (overlaps(player, enemy)) {
+      if (player.vy > 90) {
+        enemy.alive = false;
+        player.vy = -300;
+        audio.effect('hit');
+        createParticles(enemy.x, enemy.y, '#ef6a4c', 7);
+      } else damagePlayer();
+    }
+  }
+
+  for (const pickup of level.runtimePickups) {
+    if (!pickup.taken && Math.hypot(player.x - pickup.x, player.y - pickup.y) < 42) {
+      pickup.taken = true;
+      if (!save.lures.includes(pickup.id)) save.lures.push(pickup.id);
+      save.equipped = pickup.id;
+      persist();
+      audio.effect('lure');
+      showTip('NEW LURE', LURES.find(lure => lure.id === pickup.id).name);
+      renderLureMenu();
+    }
+  }
+
+  for (const secret of level.runtimeSecrets) {
+    if (!secret.taken && Math.hypot(player.x - secret.x, player.y - secret.y) < 42 && save.equipped === secret.id) {
+      secret.taken = true;
+      pearls += 5;
+      audio.effect('lure');
+      showTip('SECRET CATCH', 'Special-lure pearl cache +5');
+      createParticles(secret.x, secret.y, LURES.find(lure => lure.id === secret.id).color, 14);
+    }
+  }
+
+  for (const sign of level.signs) {
+    if (!sign.seen && Math.abs(player.x - sign[0] * TILE) < 45) {
+      sign.seen = true;
+      showTip(sign[2], sign[3]);
+    }
+  }
+
+  if (overlaps(player, { x: level.goal[0] * TILE, y: level.goal[1] * TILE, w: 50, h: 72 })) completeLevel();
+  camera = approach(camera, Math.max(0, Math.min(level.width * TILE - 960, player.x - 360)), 900 * dt);
+
+  for (const particle of particles) {
+    particle.x += particle.vx * dt;
+    particle.y += particle.vy * dt;
+    particle.vy += 220 * dt;
+    particle.life -= dt;
+  }
+  particles = particles.filter(particle => particle.life > 0);
+  pressed.clear();
+}
+
+function completeLevel() {
+  state = 'complete';
+  save.unlocked = Math.max(save.unlocked, levelIndex + 2);
+  save.times[levelIndex] = Math.min(save.times[levelIndex] || 9999, elapsed);
+  persist();
+  ui.title.textContent = `${level.fish} caught!`;
+  ui.copy.innerHTML = `${level.name} — ${formatTime(elapsed)} — ${pearls} pearls — ${deaths} falls`;
+  ui.primary.textContent = levelIndex === 4 ? 'VIEW TACKLE LOG' : 'NEXT VOYAGE';
+  ui.overlay.classList.remove('hidden');
+  audio.effect('catch');
+}
+
+function renderLureMenu() {
+  ui.grid.innerHTML = '';
+  LURES.forEach((lure, index) => {
+    const button = document.createElement('button');
+    const owned = save.lures.includes(lure.id);
+    button.className = `lure ${owned ? '' : 'locked'} ${save.equipped === lure.id ? 'equipped' : ''}`;
+    button.innerHTML = `<span class="icon" style="background-position:${index * 100 / 7}% 50%"></span><span>${owned ? lure.name : '???'}</span>`;
+    button.disabled = !owned;
+    button.onclick = () => {
+      save.equipped = lure.id;
+      persist();
+      ui.lureDescription.textContent = lure.desc;
+      renderLureMenu();
+      audio.effect('menu');
+    };
+    ui.grid.append(button);
+  });
+}
+
+function openTackleBox() {
+  if (state !== 'play') return;
+  state = 'tackle';
+  renderLureMenu();
+  ui.lureDescription.textContent = LURES.find(lure => lure.id === save.equipped).desc;
+  ui.tackle.classList.remove('hidden');
+  audio.effect('menu');
+}
+
+function closeTackleBox() {
+  if (state !== 'tackle') return;
+  state = 'play';
+  ui.tackle.classList.add('hidden');
+  keys.clear();
+}
+
+function screenX(worldX) { return Math.round(worldX - camera); }
+
+function drawPlatform(platform, moving = false) {
+  const x = screenX(platform.x);
+  const y = Math.round(platform.y);
+  const w = platform.w;
+  const h = platform.h;
+  const theme = level.gimmick;
+  if (theme === 'boats') {
+    ctx.fillStyle = moving ? '#72513d' : '#5b4032'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#c58a4a'; ctx.fillRect(x, y, w, 8);
+    ctx.strokeStyle = '#2b211f'; ctx.lineWidth = 2;
+    for (let px = 0; px < w; px += 32) { ctx.strokeRect(x + px, y + 9, 31, Math.min(22, h - 10)); ctx.fillRect(x + px + 5, y + 15, 3, 3); }
+    if (!moving && h > 40) { ctx.fillStyle = '#2d2827'; for (let px = 12; px < w; px += 48) ctx.fillRect(x + px, y + 26, 8, h - 26); }
+  } else if (theme === 'current') {
+    ctx.fillStyle = '#183a42'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#55c9a4'; ctx.fillRect(x, y, w, 7);
+    ctx.strokeStyle = '#2b5960'; for (let px = 0; px < w; px += 28) ctx.strokeRect(x + px, y + 10 + (px % 3), 24, 14);
+    ctx.fillStyle = '#6de6ba'; for (let px = 10; px < w; px += 44) ctx.fillRect(x + px, y - 4, 4, 8);
+  } else if (theme === 'wind') {
+    ctx.fillStyle = '#3d4b51'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#a7b28a'; ctx.fillRect(x, y, w, 7);
+    ctx.strokeStyle = '#59666a'; for (let px = 8; px < w; px += 30) { ctx.beginPath(); ctx.moveTo(x + px, y + 9); ctx.lineTo(x + px - 8, y + Math.min(h, 34)); ctx.stroke(); }
+    ctx.fillStyle = '#829564'; for (let px = 3; px < w; px += 38) ctx.fillRect(x + px, y - 3, 18, 4);
+  } else if (theme === 'ice') {
+    ctx.fillStyle = '#38677c'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#edf9f4'; ctx.fillRect(x, y, w, 8);
+    ctx.fillStyle = '#9dd8e5'; ctx.fillRect(x, y + 8, w, 5);
+    ctx.strokeStyle = '#4f8ca1'; for (let px = 0; px < w; px += 32) ctx.strokeRect(x + px, y + 14, 31, 18);
+  } else {
+    ctx.fillStyle = '#3b3268'; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#c7a8f3'; ctx.fillRect(x, y, w, 7);
+    ctx.strokeStyle = '#685396'; for (let px = 8; px < w; px += 28) { ctx.beginPath(); ctx.moveTo(x + px, y + 11); ctx.lineTo(x + px + 9, y + 24); ctx.lineTo(x + px - 3, y + 35); ctx.stroke(); }
+    ctx.fillStyle = '#8ce4df'; for (let px = 14; px < w; px += 50) ctx.fillRect(x + px, y + 14, 3, 3);
+  }
+}
+
+function drawAtlasCell(image, columns, index, x, y, w, h, flip = false) {
+  const cellWidth = image.width / columns;
+  ctx.save();
+  if (flip) { ctx.translate(x + w, 0); ctx.scale(-1, 1); ctx.drawImage(image, index * cellWidth, 0, cellWidth, image.height, 0, y, w, h); }
+  else ctx.drawImage(image, index * cellWidth, 0, cellWidth, image.height, x, y, w, h);
+  ctx.restore();
+}
+
+function drawFinn() {
+  let frame = 0;
+  if (player.hurtTimer > 0) frame = 7;
+  else if (player.rodTimer > 0 || player.hook) frame = 6;
+  else if (!player.grounded) frame = player.vy < 0 ? 4 : 5;
+  else if (Math.abs(player.vx) > 150) frame = 3;
+  else if (Math.abs(player.vx) > 12) frame = 1 + Math.floor(player.animationTime * 6) % 2;
+  const image = images.finn;
+  const cellWidth = image.width / 4;
+  const cellHeight = image.height / 2;
+  const sourceX = (frame % 4) * cellWidth;
+  const sourceY = Math.floor(frame / 4) * cellHeight;
+  const landingScale = player.landingTimer > 0 ? 0.94 : 1;
+  const width = 94 / landingScale;
+  const height = 122 * landingScale;
+  const x = screenX(player.x + player.w / 2) - width / 2;
+  const y = player.y + player.h - height - 2;
+  ctx.save();
+  if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, sourceY, cellWidth, cellHeight, 0, y, width, height); }
+  else ctx.drawImage(image, sourceX, sourceY, cellWidth, cellHeight, x, y, width, height);
+  ctx.restore();
+  if (player.hook) {
+    ctx.strokeStyle = LURES.find(lure => lure.id === save.equipped).color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(screenX(player.x + player.w / 2), player.y + 12);
+    ctx.quadraticCurveTo(screenX((player.x + player.hook.x) / 2), player.y + 60, screenX(player.hook.x), player.hook.y);
+    ctx.stroke();
+  }
+}
+
+function draw() {
+  if (!level) { ctx.fillStyle = '#071726'; ctx.fillRect(0, 0, canvas.width, canvas.height); return; }
+  const background = images[level.bg.replace('.png', '')];
+  const backgroundOffset = -((camera * 0.07) % 140);
+  ctx.drawImage(background, backgroundOffset, 0, 1100, 540);
+  ctx.fillStyle = '#06152228'; ctx.fillRect(0, 0, 960, 540);
+
+  for (const current of level.currents) {
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = '#71e5d080';
+      ctx.fillRect(screenX(current[0] * TILE + 10 + (i % 3) * 55), current[1] * TILE + ((elapsed * 65 + i * 61) % (current[3] * TILE)), 4, 17);
+    }
+  }
+  for (const platform of staticSolids()) drawPlatform(platform);
+  for (const mover of level.runtimeMovers) drawPlatform(mover, true);
+
+  for (const hazard of level.hazards) {
+    const x = screenX(hazard[0] * TILE), y = hazard[1] * TILE, w = hazard[2] * TILE;
+    ctx.fillStyle = '#0a5368'; ctx.fillRect(x, y, w, hazard[3] * TILE);
+    ctx.fillStyle = '#d9f3e9'; for (let hx = 4; hx < w; hx += 24) { ctx.beginPath(); ctx.moveTo(x + hx, y + 22); ctx.lineTo(x + hx + 8, y + 4); ctx.lineTo(x + hx + 16, y + 22); ctx.fill(); }
+  }
+  for (const hook of level.hooks) {
+    const x = screenX(hook[0] * TILE + 16), y = hook[1] * TILE + 16;
+    ctx.strokeStyle = '#f1c34e'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+  }
+  for (const pearl of level.runtimePearls) if (!pearl.taken) {
+    ctx.fillStyle = '#fff5d6'; ctx.beginPath(); ctx.arc(screenX(pearl.x), pearl.y, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#78d9d0'; ctx.fillRect(screenX(pearl.x) - 2, pearl.y - 9, 4, 3);
+  }
+  for (const pickup of level.runtimePickups) if (!pickup.taken) {
+    drawAtlasCell(images.lures, 8, LURES.findIndex(lure => lure.id === pickup.id), screenX(pickup.x) - 25, pickup.y - 25, 50, 50);
+  }
+  for (const secret of level.runtimeSecrets) if (!secret.taken) {
+    const lure = LURES.find(item => item.id === secret.id);
+    ctx.strokeStyle = lure.color; ctx.lineWidth = 3; ctx.strokeRect(screenX(secret.x) - 13, secret.y - 13, 26, 26);
+  }
+  for (const enemy of level.runtimeEnemies) if (enemy.alive) {
+    const index = enemy.type === 'gull' ? 1 : Math.min(4, levelIndex);
+    drawAtlasCell(images.enemy, 5, index, screenX(enemy.x) - 14, enemy.y - 22, 60, 60, enemy.vx < 0);
+  }
+  for (const checkpoint of level.checkpoints) {
+    const active = player.checkpoint.x >= checkpoint[0] * TILE;
+    ctx.fillStyle = '#765033'; ctx.fillRect(screenX(checkpoint[0] * TILE + 10), checkpoint[1] * TILE - 10, 5, 45);
+    ctx.fillStyle = active ? '#72e2bd' : '#8b8b83'; ctx.fillRect(screenX(checkpoint[0] * TILE + 15), checkpoint[1] * TILE - 8, 20, 15);
+  }
+  for (const sign of level.signs) {
+    ctx.fillStyle = '#67442e'; ctx.fillRect(screenX(sign[0] * TILE), sign[1] * TILE, 6, 30);
+    ctx.fillStyle = '#ad7442'; ctx.fillRect(screenX(sign[0] * TILE - 8), sign[1] * TILE - 7, 28, 15);
+  }
+  for (const particle of particles) { ctx.fillStyle = particle.color; ctx.fillRect(screenX(particle.x), particle.y, 4, 4); }
+
+  const fishIndex = [0, 2, 2, 3, 4][levelIndex];
+  drawAtlasCell(images.enemy, 5, fishIndex, screenX(level.goal[0] * TILE) - 20, level.goal[1] * TILE - 10, 70, 70);
+  drawFinn();
+
+  ctx.fillStyle = '#071726e8'; ctx.fillRect(14, 14, 530, 60);
+  ctx.fillStyle = '#fff1cf'; ctx.font = 'bold 14px DM Mono'; ctx.fillText(`${levelIndex + 1}/5  ${level.name.toUpperCase()}`, 27, 37);
+  ctx.fillStyle = LURES.find(lure => lure.id === save.equipped).color; ctx.font = '11px DM Mono';
+  ctx.fillText(`${formatTime(elapsed)}  ·  PEARLS ${pearls}  ·  ${LURES.find(lure => lure.id === save.equipped).name.toUpperCase()}`, 27, 59);
+  if (tipTimer > 0) {
+    ctx.fillStyle = '#071726ed'; ctx.fillRect(205, 457, 550, 50);
+    ctx.strokeStyle = '#d6b56a'; ctx.strokeRect(205, 457, 550, 50);
+    ctx.fillStyle = '#fff1cf'; ctx.textAlign = 'center'; ctx.font = 'bold 11px DM Mono'; ctx.fillText(tip, 480, 487); ctx.textAlign = 'left';
+  }
+}
+
+function loop(time) {
+  const dt = Math.min(0.025, (time - lastTime) / 1000 || 0);
+  lastTime = time;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function pauseGame() {
+  state = 'paused';
+  ui.title.textContent = 'Lines slackened';
+  ui.copy.textContent = 'The tide will wait.';
+  ui.primary.textContent = 'RESUME';
+  ui.overlay.classList.remove('hidden');
+}
+
+addEventListener('keydown', event => {
+  if (!keys.has(event.code)) pressed.add(event.code);
+  keys.add(event.code);
+  if (['Space', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(event.code)) event.preventDefault();
+  if (event.code === 'Escape') {
+    if (state === 'tackle') closeTackleBox();
+    else if (state === 'play') pauseGame();
+  }
+});
+addEventListener('keyup', event => keys.delete(event.code));
+
+for (const button of document.querySelectorAll('[data-key]')) {
+  const code = button.dataset.key;
+  const press = event => { event.preventDefault(); if (!keys.has(code)) pressed.add(code); keys.add(code); button.classList.add('active'); };
+  const release = event => { event.preventDefault(); keys.delete(code); button.classList.remove('active'); };
+  button.onpointerdown = press;
+  button.onpointerup = release;
+  button.onpointercancel = release;
+  button.onpointerleave = release;
+}
+
+for (const button of document.querySelectorAll('[data-level]')) button.onclick = () => startLevel(Number(button.dataset.level));
+document.querySelector('#touch-tackle').onclick = openTackleBox;
+document.querySelector('#close-tackle').onclick = closeTackleBox;
+ui.primary.onclick = () => {
+  if (state === 'title') startLevel(0);
+  else if (state === 'paused') { state = 'play'; ui.overlay.classList.add('hidden'); }
+  else if (state === 'complete') { if (levelIndex < 4) startLevel(levelIndex + 1); else location.reload(); }
+};
+document.querySelector('#sound').onclick = event => {
+  soundEnabled = !soundEnabled;
+  if (soundEnabled) audio.start();
+  event.target.textContent = `MUSIC + SFX: ${soundEnabled ? 'ON' : 'OFF'}`;
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'play') pauseGame(); });
+
+renderLureMenu();
+requestAnimationFrame(loop);
