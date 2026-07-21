@@ -53,6 +53,7 @@ let activeWorld = selectedWorld;
 
 const assetPaths = {
   finn: 'assets/sprites/finn-atlas.png',
+  finnActions: 'assets/sprites/finn-crouch-slide.png',
   enemy: 'assets/sprites/enemy-atlas.png',
   lures: 'assets/sprites/lure-atlas.png',
   environment: 'assets/sprites/environment-atlas-v2.png',
@@ -443,16 +444,16 @@ function update(dt) {
   const direction = (isDown('KeyD', 'ArrowRight') ? 1 : 0) - (isDown('KeyA', 'ArrowLeft') ? 1 : 0);
   const jumpPressed = wasPressed('Space', 'KeyZ', 'ArrowUp');
   const jumpHeld = isDown('Space', 'KeyZ', 'ArrowUp');
-  const crouchHeld = isDown('KeyS', 'KeyC', 'ArrowDown');
-  const crouchPressed = wasPressed('KeyS', 'KeyC', 'ArrowDown');
+  const crouchHeld = isDown('ControlLeft', 'ControlRight');
+  const crouchPressed = wasPressed('ControlLeft', 'ControlRight');
   const dashPressed = wasPressed('KeyQ', 'ShiftLeft', 'ShiftRight');
-  const rodHeld = isDown('KeyE', 'KeyX');
+  const rodHeld = isDown('KeyE');
   if (direction) player.facing = direction;
   if (jumpPressed) player.jumpBuffer = 0.13;
   else player.jumpBuffer = Math.max(0, player.jumpBuffer - dt);
   player.coyote = player.grounded ? 0.12 : Math.max(0, player.coyote - dt);
 
-  if (wasPressed('KeyE', 'KeyX')) castRod();
+  if (wasPressed('KeyE')) castRod();
   if (player.hook && !rodHeld) player.hook = null;
   if (wasPressed('Tab', 'KeyT')) openTackleBox();
 
@@ -838,27 +839,45 @@ function drawFinn() {
   else if (!player.grounded) frame = player.vy < 0 ? 4 : 5;
   else if (Math.abs(player.vx) > 150) frame = 3;
   else if (Math.abs(player.vx) > 12) frame = 1 + Math.floor(player.animationTime * 6) % 2;
-  const image = images.finn;
-  const cellWidth = image.width / 4;
-  const cellHeight = image.height / 2;
-  const crops = [
-    [45, 92, 205, 390], [20, 92, 285, 390], [8, 90, 312, 392], [15, 112, 350, 355],
-    [26, 35, 292, 390], [18, 70, 300, 400], [0, 72, 382, 400], [34, 70, 330, 375],
-  ];
-  const [cropX, cropY, cropW, cropH] = crops[frame];
-  const sourceX = (frame % 4) * cellWidth + cropX;
-  const sourceY = Math.floor(frame / 4) * cellHeight + cropY;
-  const landingScale = player.landingTimer > 0 ? 0.94 : 1;
-  const spriteScale = 0.255;
-  let width = cropW * spriteScale / landingScale;
-  let height = cropH * spriteScale * landingScale;
-  if (player.crouched) { width *= player.sliding ? 1.12 : 1.04; height *= player.sliding ? 0.7 : 0.78; }
-  const x = screenX(player.x + player.w / 2) - width / 2;
-  const y = Math.round(player.y + player.h - height);
-  ctx.save();
-  if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, sourceY, cropW, cropH, 0, y, width, height); }
-  else ctx.drawImage(image, sourceX, sourceY, cropW, cropH, x, y, width, height);
-  ctx.restore();
+  if (player.crouched) {
+    const image = images.finnActions;
+    const cellWidth = image.width / 2;
+    const [cropX, cropY, cropW, cropH] = player.sliding ? [38, 160, 610, 620] : [135, 160, 500, 610];
+    const sourceX = (player.sliding ? cellWidth : 0) + cropX;
+    const settle = player.sliding ? 1 + Math.sin(player.animationTime * 18) * .012 : 1 - Math.min(.035, player.slideTimer * .06);
+    const width = cropW * .13 / settle;
+    const height = cropH * .13 * settle;
+    const x = screenX(player.x + player.w / 2) - width / 2;
+    const y = Math.round(player.y + player.h - height + (player.sliding ? 2 : 0));
+    ctx.save();
+    if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, cropY, cropW, cropH, 0, y, width, height); }
+    else ctx.drawImage(image, sourceX, cropY, cropW, cropH, x, y, width, height);
+    ctx.restore();
+    if (player.sliding) {
+      ctx.fillStyle = '#d8c69688';
+      for (let streak = 0; streak < 3; streak++) ctx.fillRect(screenX(player.x) - player.facing * (13 + streak * 9), player.y + player.h - 3 - streak * 3, 9 + streak * 3, 2);
+    }
+  } else {
+    const image = images.finn;
+    const cellWidth = image.width / 4;
+    const cellHeight = image.height / 2;
+    const crops = [
+      [45, 92, 205, 390], [20, 92, 285, 390], [8, 90, 312, 392], [15, 112, 350, 355],
+      [26, 35, 292, 390], [18, 70, 300, 400], [0, 72, 382, 400], [34, 70, 330, 375],
+    ];
+    const [cropX, cropY, cropW, cropH] = crops[frame];
+    const sourceX = (frame % 4) * cellWidth + cropX;
+    const sourceY = Math.floor(frame / 4) * cellHeight + cropY;
+    const landingScale = player.landingTimer > 0 ? 0.94 : 1;
+    const width = cropW * 0.255 / landingScale;
+    const height = cropH * 0.255 * landingScale;
+    const x = screenX(player.x + player.w / 2) - width / 2;
+    const y = Math.round(player.y + player.h - height);
+    ctx.save();
+    if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, sourceY, cropW, cropH, 0, y, width, height); }
+    else ctx.drawImage(image, sourceX, sourceY, cropW, cropH, x, y, width, height);
+    ctx.restore();
+  }
   if (player.hook) {
     ctx.strokeStyle = LURES.find(lure => lure.id === save.equipped).color;
     ctx.lineWidth = 3;

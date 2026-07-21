@@ -55,7 +55,7 @@ function buildHarbor(t){
  l.secrets.push([45,4,'ember'],[113,8,'ember'],[219,6,'ember']);
  l.signs.push(
   [3,13,'FIND YOUR SEA LEGS','Move first. Tap Jump for a hop; hold it to climb higher.'],
-  [20,13,'DUCK THE RIGGING','Hold Slide to crouch. Build speed first and Finn will skim beneath it.'],
+  [20,13,'DUCK THE RIGGING','Hold Ctrl to crouch. Build speed first and Finn will skim beneath it.'],
   [35,13,'A SECOND WIND','Jump again in the air. The high pearls are practice, not the only way onward.'],
   [53,13,'CLEAR THE WATER','Jump, then Dash for a short committed burst. Double jump can rescue a late attempt.'],
   [69,13,'WALL WORK','Hold toward a wall to slide slowly, then Jump to kick away.'],
@@ -84,17 +84,22 @@ function buildLevel(t,li){
  const l=baseLevel(t);
  for(let room=0;room<12;room++){
   const x=room*19,pattern=(room+li)%4;
-  if(pattern===0){l.platforms.push([x,15,12,2],[x+15,14,4,3],[x+6,10,4,1]);l.hazards.push([x+12,15,3,2])}
-  if(pattern===1){l.platforms.push([x,15,7,2],[x+10,12,6,5],[x+17,15,2,2],[x+5,8,4,1]);l.hazards.push([x+7,15,3,2])}
-  if(pattern===2){l.platforms.push([x,14,5,3],[x+8,15,6,2],[x+17,13,2,4],[x+5,9,4,1],[x+13,7,3,1]);l.hazards.push([x+5,15,3,2],[x+14,15,3,2])}
-  if(pattern===3){l.platforms.push([x,15,9,2],[x+12,11,5,6],[x+18,15,1,2],[x+7,7,4,1]);l.hazards.push([x+9,15,3,2],[x+17,15,1,2])}
+  if(room===0){
+   l.platforms.push([0,15,8,2],[9,13,4,4],[14,11,5,6]);
+  }else{
+   if(pattern===0){l.platforms.push([x,15,12,2],[x+15,14,4,3],[x+6,10,4,1]);l.hazards.push([x+12,15,3,2])}
+   if(pattern===1){l.platforms.push([x,15,7,2],[x+10,12,6,5],[x+17,15,2,2],[x+5,8,4,1]);l.hazards.push([x+7,15,3,2])}
+   if(pattern===2){l.platforms.push([x,14,5,3],[x+8,15,6,2],[x+17,13,2,4],[x+5,9,4,1],[x+13,7,3,1]);l.hazards.push([x+5,15,3,2],[x+14,15,3,2])}
+   if(pattern===3){l.platforms.push([x,15,9,2],[x+12,11,5,6],[x+18,15,1,2],[x+7,7,4,1]);l.hazards.push([x+9,15,3,2],[x+17,15,1,2])}
+  }
   l.hooks.push([x+9,5+(room%2)*2],[x+16,4]);
-  if(pattern===0)l.pearls.push([x+3,13],[x+7,9],[x+13,12],[x+16,12]);
-  if(pattern===1)l.pearls.push([x+3,13],[x+7,10],[x+11,10],[x+15,10]);
-  if(pattern===2)l.pearls.push([x+2,12],[x+6,8],[x+11,13],[x+14,6],[x+17,11]);
-  if(pattern===3)l.pearls.push([x+3,13],[x+8,6],[x+10,9],[x+13,9],[x+17,13]);
+  if(room===0)l.pearls.push([3,13],[6,13],[9,12],[11,11],[14,10],[16,9]);
+  else if(pattern===0)l.pearls.push([x+3,13],[x+7,9],[x+13,12],[x+16,12]);
+  else if(pattern===1)l.pearls.push([x+3,13],[x+7,10],[x+11,10],[x+15,10]);
+  else if(pattern===2)l.pearls.push([x+2,12],[x+6,8],[x+11,13],[x+14,6],[x+17,11]);
+  else if(pattern===3)l.pearls.push([x+3,13],[x+8,6],[x+10,9],[x+13,9],[x+17,13]);
   const enemyType=li===0?(room%3===0?'skipper':'clackett'):(li===1?'bloop':(room%3===0?'skipper':'clackett'));
-  l.enemies.push([x+4,13,enemyType]);
+  if(room>0)l.enemies.push([x+4,13,enemyType]);
   if(room%3===1)l.movers.push([x+7,11,3,1,room%2?0:80,room%2?80:0,1.5+li*.12]);
   if(room===3||room===6||room===9)l.checkpoints.push([x+2,12]);
  }
