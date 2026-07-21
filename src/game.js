@@ -53,7 +53,7 @@ let activeWorld = selectedWorld;
 
 const assetPaths = {
   finn: 'assets/sprites/finn-atlas.png',
-  finnActions: 'assets/sprites/finn-crouch-slide.png',
+  finnActions: 'assets/sprites/finn-crouch-slide-v2.png',
   enemy: 'assets/sprites/enemy-atlas.png',
   lures: 'assets/sprites/lure-atlas.png',
   environment: 'assets/sprites/environment-atlas-v2.png',
@@ -168,7 +168,7 @@ function spawn(x, y, checkpoint = { x, y }) {
     grounded: false, coyote: 0, jumpBuffer: 0, jumpHeld: false,
     wallDirection: 0, hook: null, rodTimer: 0, hurtTimer: 0,
     checkpoint, riding: null, animationTime: 0, landingTimer: 0,
-    airJumps: 1, crouched: false, sliding: false, slideTimer: 0,
+    airJumps: 1, crouched: false, crouchTime: 0, sliding: false, slideTimer: 0,
     dashTimer: 0, dashCooldown: 0,
   };
 }
@@ -357,6 +357,7 @@ function setCrouched(crouched) {
     player.y += difference;
     player.h -= difference;
     player.crouched = true;
+    player.crouchTime = 0;
     return;
   }
   const standingBody = { x: player.x, y: player.y - difference, w: player.w, h: player.h + difference };
@@ -526,6 +527,7 @@ function update(dt) {
   player.slideTimer = Math.max(0, player.slideTimer - dt);
   if (!player.slideTimer || !player.grounded) player.sliding = false;
   setCrouched(crouchHeld || player.sliding);
+  if (player.crouched) player.crouchTime += dt;
 
   const maxSpeed = player.crouched && !player.sliding ? 90 : 205;
   const acceleration = player.grounded ? 1050 : 620;
@@ -868,14 +870,13 @@ function drawFinn() {
   else if (Math.abs(player.vx) > 12) frame = 1 + Math.floor(player.animationTime * 6) % 2;
   if (player.crouched) {
     const image = images.finnActions;
-    const cellWidth = image.width / 2;
-    const [cropX, cropY, cropW, cropH] = player.sliding ? [38, 160, 610, 620] : [135, 160, 500, 610];
-    const sourceX = (player.sliding ? cellWidth : 0) + cropX;
-    const settle = player.sliding ? 1 + Math.sin(player.animationTime * 18) * .012 : 1 - Math.min(.035, player.slideTimer * .06);
-    const width = cropW * .13 / settle;
-    const height = cropH * .13 * settle;
+    const actionFrame = player.sliding ? (player.slideTimer > .42 ? 2 : 3) : (player.crouchTime < .12 ? 0 : 1);
+    const actionCrops = [[120,160,290,420],[575,170,300,410],[980,225,410,360],[1450,280,430,310]];
+    const [sourceX, cropY, cropW, cropH] = actionCrops[actionFrame];
+    const height = player.sliding ? 74 : 80;
+    const width = cropW / cropH * height;
     const x = screenX(player.x + player.w / 2) - width / 2;
-    const y = Math.round(player.y + player.h - height + (player.sliding ? 2 : 0));
+    const y = Math.round(player.y + player.h - height);
     ctx.save();
     if (player.facing < 0) { ctx.translate(x + width, 0); ctx.scale(-1, 1); ctx.drawImage(image, sourceX, cropY, cropW, cropH, 0, y, width, height); }
     else ctx.drawImage(image, sourceX, cropY, cropW, cropH, x, y, width, height);
