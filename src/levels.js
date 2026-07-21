@@ -1,31 +1,44 @@
 export const TILE=32;
-const make=data=>({platforms:[],hazards:[],hooks:[],pearls:[],enemies:[],checkpoints:[],springs:[],movers:[],switches:[],gates:[],windZones:[],signs:[],...data});
-
-// Three long-form voyages. Every 40-55 tiles form a self-contained movement room.
-export const LEVELS=[
-make({name:'Sunset Shipyard',fish:'Copper Koi',sky:['#173b56','#df7655'],water:'#176878',accent:'#f1b84b',par:210,width:178,start:[2,13],goal:[174,10],
- platforms:[[0,15,15,2],[18,14,8,3],[29,12,8,5],[40,15,12,2],[55,13,7,4],[65,10,8,7],[76,14,10,3],[89,11,7,6],[99,15,12,2],[114,12,6,5],[123,9,8,8],[134,14,9,3],[146,11,8,6],[157,15,9,2],[169,12,9,5],[9,10,4,1],[22,9,3,1],[34,6,4,1],[45,9,4,1],[59,7,3,1],[70,4,3,1],[81,8,4,1],[93,5,4,1],[104,9,4,1],[118,6,3,1],[128,4,4,1],[139,8,3,1],[151,5,4,1],[163,8,3,1]],
- hazards:[[15,15,3,2],[26,15,3,2],[37,15,3,2],[52,15,3,2],[62,15,3,2],[73,15,3,2],[86,15,3,2],[96,15,3,2],[111,15,3,2],[120,15,3,2],[131,15,3,2],[143,15,3,2],[154,15,3,2],[166,15,3,2]],hooks:[[16,7],[28,5],[39,7],[53,6],[64,3],[75,7],[88,4],[98,7],[113,5],[122,3],[133,6],[145,4],[156,7],[168,5]],
- pearls:[[11,9],[23,8],[35,5],[47,8],[60,6],[71,3],[83,7],[94,4],[106,8],[119,5],[129,3],[140,7],[152,4],[164,7],[171,9]],enemies:[[20,13],[31,11],[43,14],[57,12],[78,13],[91,10],[101,14],[116,11],[136,13],[148,10],[171,11]],checkpoints:[[42,13],[91,9],[136,12]],springs:[[50,14],[84,13],[109,14],[164,14]],movers:[[27,9,4,1,0,100,2.3],[74,11,4,1,110,0,2.7],[132,10,4,1,0,105,2.4]],switches:[[103,8,'crane']],gates:[[126,5,1,4,'crane']],signs:[[5,13,'RUN + JUMP','Hold jump for height. Release early for a short hop.'],[31,10,'WALL JUMP','Press toward a wall to slide. Jump to kick away.'],[77,12,'WAVEDASH','Air-dash diagonally down into ground. Keep the speed.'],[101,13,'HIT THE WINCH','Touch the gold switch to raise the crane gate.']]}),
-make({name:'Glowkelp Grotto',fish:'Lantern Eel',sky:['#071f30','#126252'],water:'#082f43',accent:'#72e2bd',par:260,width:191,start:[2,13],goal:[187,4],
- platforms:[[0,15,11,2],[14,12,7,5],[24,15,9,2],[36,10,7,7],[46,14,8,3],[58,8,7,9],[68,15,9,2],[80,11,8,6],[91,14,7,3],[101,7,8,10],[112,15,9,2],[124,10,7,7],[134,14,8,3],[145,8,8,9],[156,15,8,2],[168,10,8,7],[180,6,11,11],[8,8,3,1],[20,6,3,1],[32,8,3,1],[44,5,3,1],[55,3,3,1],[66,6,3,1],[77,8,3,1],[89,5,3,1],[99,3,3,1],[110,8,3,1],[121,5,3,1],[132,7,3,1],[143,3,3,1],[154,6,3,1],[166,4,3,1],[177,2,3,1]],
- hazards:[[11,15,3,2],[21,15,3,2],[33,15,3,2],[43,15,3,2],[54,15,4,2],[65,15,3,2],[77,15,3,2],[88,15,3,2],[98,15,3,2],[109,15,3,2],[121,15,3,2],[131,15,3,2],[142,15,3,2],[153,15,3,2],[164,15,4,2],[176,15,4,2]],hooks:[[12,5],[23,3],[35,5],[45,2],[57,1],[67,3],[79,5],[90,2],[100,1],[111,5],[123,3],[133,4],[144,1],[155,3],[167,1],[178,0]],pearls:[[9,7],[21,5],[33,7],[45,4],[56,2],[67,5],[78,7],[90,4],[100,2],[111,7],[122,4],[133,6],[144,2],[155,5],[167,3],[178,1],[185,3]],enemies:[[16,11],[26,14],[38,9],[48,13],[70,14],[82,10],[93,13],[114,14],[126,9],[136,13],[147,7],[158,14],[170,9],[183,5]],checkpoints:[[47,12],[94,12],[137,12]],springs:[[31,14],[75,14],[118,14],[162,14]],movers:[[22,10,4,1,0,120,2.1],[53,11,4,1,120,0,2.5],[97,10,4,1,0,140,2.3],[141,10,4,1,120,0,2.6],[175,8,4,1,0,120,2.2]],switches:[[72,7,'kelp'],[128,7,'tide']],gates:[[84,6,1,5,'kelp'],[149,4,1,4,'tide']],windZones:[[42,0,12,15,0,-250],[104,0,10,15,0,-220],[158,0,10,15,0,-260]],signs:[[5,13,'CAST THE LINE','Cast near a gold hook. Jump to release with momentum.'],[43,13,'BUBBLE CURRENT','The glowing current carries you upward. Steer while rising.'],[69,13,'TWO ROUTES','Switches open the safe route. Skilled movement can go over.'],[159,13,'CHAIN IT','Swing, release, dash, then wall jump.']]}),
-make({name:'Stormglass Summit',fish:'Thunder Marlin',sky:['#11172f','#58677d'],water:'#183a65',accent:'#efce68',par:330,width:213,start:[2,13],goal:[209,2],wind:22,
- platforms:[[0,15,10,2],[13,13,7,4],[23,9,7,8],[33,14,8,3],[44,8,7,9],[54,15,8,2],[65,11,7,6],[75,6,8,11],[86,14,8,3],[97,9,7,8],[107,15,8,2],[118,7,8,10],[129,13,7,4],[139,9,8,8],[150,15,8,2],[161,10,8,7],[172,6,8,11],[183,13,8,4],[194,8,8,9],[205,4,8,13],[8,8,3,1],[20,5,3,1],[31,7,3,1],[42,4,3,1],[52,6,3,1],[63,4,3,1],[73,2,3,1],[84,6,3,1],[95,4,3,1],[105,6,3,1],[116,3,3,1],[127,4,3,1],[137,6,3,1],[148,4,3,1],[159,6,3,1],[170,2,3,1],[181,5,3,1],[192,3,3,1],[203,1,2,1]],
- hazards:[[10,15,3,2],[20,15,3,2],[30,15,3,2],[41,15,3,2],[51,15,3,2],[62,15,3,2],[72,15,3,2],[83,15,3,2],[94,15,3,2],[104,15,3,2],[115,15,3,2],[126,15,3,2],[136,15,3,2],[147,15,3,2],[158,15,3,2],[169,15,3,2],[180,15,3,2],[191,15,3,2],[202,15,3,2]],hooks:[[11,5],[22,2],[32,4],[43,1],[53,3],[64,1],[74,0],[85,3],[96,1],[106,3],[117,0],[128,2],[138,3],[149,1],[160,3],[171,0],[182,2],[193,1],[204,0]],pearls:[[9,7],[21,4],[32,6],[43,3],[53,5],[64,3],[74,1],[85,5],[96,3],[106,5],[117,2],[128,3],[138,5],[149,3],[160,5],[171,1],[182,4],[193,2],[204,1],[209,1]],enemies:[[15,12],[25,8],[35,13],[46,7],[56,14],[67,10],[77,5],[88,13],[99,8],[109,14],[120,6],[131,12],[141,8],[152,14],[163,9],[174,5],[185,12],[196,7],[207,3]],checkpoints:[[48,6],[101,7],[153,13]],springs:[[39,13],[92,13],[145,8],[189,12]],movers:[[21,12,4,1,0,120,2.4],[52,10,4,1,120,0,2.8],[84,10,4,1,0,130,2.2],[115,11,4,1,130,0,2.7],[158,7,4,1,0,135,2.3],[191,10,4,1,120,0,2.8]],switches:[[69,8,'storm'],[164,7,'spire']],gates:[[79,2,1,4,'storm'],[176,2,1,4,'spire']],windZones:[[30,0,12,15,150,0],[81,0,15,15,-170,0],[126,0,12,15,190,0],[177,0,14,15,-180,0]],signs:[[5,13,'DIAGONAL DASH','Hold a direction and dash. All eight directions work.'],[34,12,'WAVEDASH TRIAL','Dash down-diagonal into a platform, then jump to carry speed.'],[87,12,'WALL CHAIN','Dash refreshes when you touch ground. Wall jumps preserve momentum.'],[155,13,'FINAL ASCENT','Every challenge has a safe route and a fast route. Choose yours.']]})
+export const LURES=[
+ {id:'classic',name:'Old Reliable',color:'#e9d39b',desc:'Balanced attack, retrieval and grappling.'},
+ {id:'ember',name:'Ember Minnow',color:'#ff704d',desc:'Burns brambles and pierces icy armor.'},
+ {id:'bubble',name:'Bubble Bobber',color:'#72dfe0',desc:'Slows falls and floats hooked enemies.'},
+ {id:'magnet',name:'Iron Mackerel',color:'#9ab7c5',desc:'Pulls metal, coins and distant switches.'},
+ {id:'anchor',name:'Anchor Grub',color:'#687786',desc:'Slams downward through cracked floors.'},
+ {id:'storm',name:'Storm Squid',color:'#f2d45c',desc:'Chains lightning between nearby targets.'},
+ {id:'moon',name:'Moon Jelly',color:'#b99bff',desc:'Hooks spectral anchors and star paths.'},
+ {id:'golden',name:'Golden Fly',color:'#ffd45a',desc:'Finds treasure and multiplies pearl value.'}
 ];
 
-// A final endurance act keeps skilled runs substantial while offering two routes.
-for(const [li,l] of LEVELS.entries()){
- const old=l.width,rooms=5;
- for(let r=0;r<rooms;r++){
-  const x=old-4+r*30,high=(r+li)%2===0;
-  l.platforms.push([x,high?12:14,8,high?5:3],[x+12,high?15:10,7,high?2:7],[x+23,high?11:13,7,high?6:4],[x+7,high?6:8,3,1],[x+19,high?7:4,3,1]);
-  l.hazards.push([x+8,15,4,2],[x+19,15,4,2]);l.hooks.push([x+10,high?3:5],[x+21,high?4:2]);
-  l.pearls.push([x+8,high?5:7],[x+20,high?6:3],[x+27,high?10:12]);l.enemies.push([x+2,high?11:13],[x+24,high?10:12]);
-  l.springs.push([x+6,high?11:13]);l.movers.push([x+9,high?10:12,3,1,high?90:0,high?0:95,2.2+r*.12]);
-  if(r===1||r===3)l.checkpoints.push([x+24,high?9:11]);
+const THEMES=[
+ {name:'Tacklewick Harbor',fish:'Copper Koi',bg:'harbor.png',top:'#d29a51',body:'#543b32',music:0,lure:'ember',gimmick:'boats'},
+ {name:'Glowkelp Grotto',fish:'Lantern Eel',bg:'grotto.png',top:'#55c9a4',body:'#173d43',music:1,lure:'bubble',gimmick:'current'},
+ {name:'Stormbreak Cliffs',fish:'Thunder Marlin',bg:'cliffs.png',top:'#b9c8aa',body:'#344854',music:2,lure:'magnet',gimmick:'wind'},
+ {name:'Icewater Village',fish:'Frostfin Tuna',bg:'icewater.png',top:'#e5f7ee',body:'#42748b',music:3,lure:'anchor',gimmick:'ice'},
+ {name:'The Star-Sea',fish:'The Starwhale',bg:'starsea.png',top:'#d4b9ff',body:'#3a326b',music:4,lure:'moon',gimmick:'stars'}
+];
+
+function buildLevel(t,li){
+ const l={...t,width:236,start:[2,13],goal:[231,12],platforms:[],hazards:[],hooks:[],pearls:[],enemies:[],movers:[],checkpoints:[],lurePickups:[],secrets:[],currents:[],windZones:[],signs:[]};
+ for(let room=0;room<12;room++){
+  const x=room*19,pattern=(room+li)%4;
+  if(pattern===0){l.platforms.push([x,15,12,2],[x+15,14,4,3],[x+6,10,4,1]);l.hazards.push([x+12,15,3,2])}
+  if(pattern===1){l.platforms.push([x,15,7,2],[x+10,12,6,5],[x+17,15,2,2],[x+5,8,4,1]);l.hazards.push([x+7,15,3,2])}
+  if(pattern===2){l.platforms.push([x,14,5,3],[x+8,15,6,2],[x+17,13,2,4],[x+5,9,4,1],[x+13,7,3,1]);l.hazards.push([x+5,15,3,2],[x+14,15,3,2])}
+  if(pattern===3){l.platforms.push([x,15,9,2],[x+12,11,5,6],[x+18,15,1,2],[x+7,7,4,1]);l.hazards.push([x+9,15,3,2],[x+17,15,1,2])}
+  l.hooks.push([x+9,5+(room%2)*2],[x+16,4]);
+  l.pearls.push([x+5,12],[x+9,8],[x+16,10]);
+  l.enemies.push([x+4,13,room%3===0?'gull':'crab']);
+  if(room%3===1)l.movers.push([x+7,11,3,1,room%2?0:80,room%2?80:0,1.5+li*.12]);
+  if(room===3||room===6||room===9)l.checkpoints.push([x+2,12]);
  }
- l.signs.push([old+1,10,'ENDURANCE ACT','Five linked rooms. The upper line is faster; the lower line is safer.']);
- l.width=old+148;l.goal=[l.width-5,(rooms-1+li)%2===0?9:11];l.par+=120;
+ l.platforms.push([228,15,8,2]);
+ l.lurePickups.push([25+li*2,6,t.lure]);
+ l.secrets.push([46,6,t.lure],[121,5,t.lure],[198,4,t.lure]);
+ l.signs.push([4,13,'RUN & JUMP','Hold to run. Tap jump for a hop; hold it for height.'],[21,12,'CAST','Tap the rod to strike or retrieve. Hold near a gold ring to grapple.'],[43,12,'TACKLE BOX','Collected lures are permanent. Open the box whenever you are safe.']);
+ if(t.gimmick==='current')l.currents.push([54,3,7,12],[142,2,7,13]);
+ if(t.gimmick==='wind')l.windZones.push([70,0,18,15,70],[165,0,18,15,-65]);
+ if(t.gimmick==='stars')l.currents.push([102,4,8,11],[191,2,8,13]);
+ return l;
 }
+export const LEVELS=THEMES.map(buildLevel);

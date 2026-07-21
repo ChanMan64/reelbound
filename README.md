@@ -2,48 +2,39 @@
 
 ![Reelbound key art](assets/reelbound-key-art.png)
 
-**Reelbound** is a movement-first pixel platformer about a fisherman chasing legendary catches. Wall jump, wavedash, air-dash, stomp hostile crabs, and use your fishing line as a momentum-driven grappling hook.
+**Reelbound** is a cheerful movement-first platformer about Finn Tidewell, a fisherman chasing five legendary catches. The demo uses traditional run-and-jump controls, a contextual fishing rod, and a permanent collection of magical lures.
 
 ## Play
 
-Play the latest build at [chanman64.github.io/reelbound](https://chanman64.github.io/reelbound/), or run any local web server in the repository.
+Play at [chanman64.github.io/reelbound](https://chanman64.github.io/reelbound/).
 
 | Action | Keyboard |
 | --- | --- |
-| Move / aim | WASD or arrow keys |
-| Jump / release line | Space or Z |
-| Cast / retract | E or X |
-| Eight-direction dash | Shift or C |
-| Restart at checkpoint | R |
+| Move | A/D or left/right |
+| Variable jump | Space, Z, or up |
+| Rod attack / retrieve / grapple | E or X |
+| Open tackle box | T or Tab |
 | Pause | Escape |
 
-### Movement tech
+Touch devices use two movement buttons, Jump, Rod, and a separate Tackle button that pauses play.
 
-- **Variable jump:** Hold jump for height or release early for a short hop.
-- **Wall jump:** Hold toward a wall to slide, then jump to kick away.
-- **Wavedash:** While airborne, hold down plus left or right and dash diagonally into the ground. Jump during the teal speed window to carry momentum.
-- **Grapple release:** Cast near a gold hook, build a swing, then jump to release while preserving speed.
-- **Dash refresh:** Landing, bouncing, and stomping an enemy restore the air dash.
+## Demo voyages
 
-## Full-length demo voyages
+1. **Tacklewick Harbor** - docks, boats, and the Ember Minnow.
+2. **Glowkelp Grotto** - luminous currents and the Bubble Bobber.
+3. **Stormbreak Cliffs** - coastal wind and the Iron Mackerel.
+4. **Icewater Village** - slippery footing and the Anchor Grub.
+5. **The Star-Sea** - floating islands and the Moon Jelly.
 
-1. **Sunset Shipyard** - wall movement, wavedashes, moving cranes, and a winch puzzle.
-2. **Glowkelp Grotto** - grappling, bubble currents, moving platforms, and route choices.
-3. **Stormglass Summit** - diagonal dashes, wall chains, alternating wind, and full-system mastery.
+Every main route is completable with the default Old Reliable lure. Special lures are permanent inventory items that change the rod's appearance and behavior, reveal optional secrets, and offer alternate strategies. The tackle box defines eight lure slots for the full game.
 
-Each voyage is divided by checkpoints and supports a safe main route plus faster technical lines. Time, pearls, falls, score, rank, best times, and catches are saved locally.
+## Art and audio
+
+The demo uses an original animated Finn sprite atlas and five original pixel-art environment plates created for Reelbound. Music and responsive sound effects are synthesized in real time with the Web Audio API, so the project has no third-party audio dependencies.
 
 ## Technology
 
-Reelbound uses dependency-free JavaScript and HTML5 Canvas at a fixed 960x540 internal resolution. The interface includes safe-area-aware landscape touch controls for future iPhone and iPad packaging. Gameplay art is currently procedural while the approved production sprites are developed.
-
-## Roadmap
-
-- Production character and environment sprite atlases
-- Gamepad support and remappable controls
-- Original chiptune soundtrack
-- Story encounters, bosses, and rod upgrades
-- Native iOS packaging and TestFlight builds
+Dependency-free JavaScript and HTML5 Canvas at a 960x540 internal resolution, with responsive landscape controls and iPhone/iPad safe-area support.
 
 ## License
 
