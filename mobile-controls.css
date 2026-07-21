@@ -10,6 +10,15 @@
   font-size: 8px;
 }
 
+.touch-actions .dash-button {
+  width: 60px;
+  height: 60px;
+  font-size: 8px;
+  background: #3d376bd9;
+  border-color: #b9b2f2cc;
+  box-shadow: inset 0 -4px 0 #201b4688;
+}
+
 .touch-actions .jump-button {
   width: 80px !important;
   height: 80px !important;
