@@ -41,9 +41,10 @@ const assetPaths = {
   enemy: 'assets/sprites/enemy-atlas.png',
   lures: 'assets/sprites/lure-atlas.png',
   environment: 'assets/sprites/environment-atlas-v2.png',
-  clackett: 'assets/sprites/clackett-atlas.png',
-  skipper: 'assets/sprites/skipper-atlas.png',
-  glowgulp: 'assets/sprites/glowgulp-atlas.png',
+  clackett: 'assets/sprites/clackett-atlas-v2.png',
+  skipper: 'assets/sprites/skipper-atlas-v2.png',
+  bloop: 'assets/sprites/bloop-atlas.png',
+  props: 'assets/sprites/prop-atlas.png',
   harbor: 'assets/backgrounds/harbor.png',
   grotto: 'assets/backgrounds/grotto.png',
   cliffs: 'assets/backgrounds/cliffs.png',
@@ -125,7 +126,7 @@ function makeRuntimeLevel() {
   level.runtimePearls = level.pearls.map(p => ({ x: p[0] * TILE + 16, y: p[1] * TILE + 16, taken: false }));
   level.runtimeEnemies = level.enemies.map((e, index) => ({
     x: e[0] * TILE + 4, y: e[1] * TILE + (e[2] === 'skipper' ? -36 : 7),
-    w: e[2] === 'glowgulp' ? 32 : 25, h: e[2] === 'skipper' ? 20 : 22, type: e[2],
+    w: e[2] === 'bloop' ? 28 : 23, h: e[2] === 'skipper' ? 18 : 20, type: e[2],
     vx: index % 2 ? 36 : -36, vy: 0, alive: true, state: 'patrol',
     timer: 1.1 + (index % 3) * 0.45, cooldown: 0.8 + (index % 2), originY: e[1] * TILE + 7,
   }));
@@ -149,6 +150,7 @@ function spawn(x, y, checkpoint = { x, y }) {
     wallDirection: 0, hook: null, rodTimer: 0, hurtTimer: 0,
     checkpoint, riding: null, animationTime: 0, landingTimer: 0,
     airJumps: 1, crouched: false, sliding: false, slideTimer: 0,
+    dashTimer: 0, dashCooldown: 0,
   };
 }
 
@@ -254,6 +256,21 @@ function createParticles(x, y, color = '#fff1cf', count = 5) {
   });
 }
 
+function enemyHurtbox(enemy) {
+  if (enemy.type === 'skipper') return { x: enemy.x + 3, y: enemy.y + 3, w: enemy.w - 6, h: enemy.h - 7 };
+  return { x: enemy.x + 2, y: enemy.y + 3, w: enemy.w - 4, h: enemy.h - 3 };
+}
+
+function launchEnemy(enemy, direction) {
+  enemy.state = 'launched';
+  enemy.timer = 1.8;
+  enemy.vx = direction * 125;
+  enemy.vy = -350;
+  enemy.rotation = 0;
+  audio.effect('hit');
+  createParticles(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, '#ffbd47', 12);
+}
+
 function showTip(heading, body) { tip = `${heading} — ${body}`; tipTimer = 4; }
 
 function damagePlayer() {
@@ -329,6 +346,8 @@ function update(dt) {
   player.hurtTimer = Math.max(0, player.hurtTimer - dt);
   player.rodTimer = Math.max(0, player.rodTimer - dt);
   player.landingTimer = Math.max(0, player.landingTimer - dt);
+  player.dashTimer = Math.max(0, player.dashTimer - dt);
+  player.dashCooldown = Math.max(0, player.dashCooldown - dt);
   player.animationTime += dt;
   updateMovingPlatforms();
 
@@ -337,6 +356,7 @@ function update(dt) {
   const jumpHeld = isDown('Space', 'KeyZ', 'ArrowUp');
   const crouchHeld = isDown('KeyS', 'KeyC', 'ArrowDown');
   const crouchPressed = wasPressed('KeyS', 'KeyC', 'ArrowDown');
+  const dashPressed = wasPressed('KeyQ', 'ShiftLeft', 'ShiftRight');
   const rodHeld = isDown('KeyE', 'KeyX');
   if (direction) player.facing = direction;
   if (jumpPressed) player.jumpBuffer = 0.13;
@@ -346,6 +366,16 @@ function update(dt) {
   if (wasPressed('KeyE', 'KeyX')) castRod();
   if (player.hook && !rodHeld) player.hook = null;
   if (wasPressed('Tab', 'KeyT')) openTackleBox();
+
+  if (dashPressed && player.dashCooldown <= 0 && !player.crouched) {
+    player.dashTimer = 0.16;
+    player.dashCooldown = 0.68;
+    player.vx = player.facing * 355;
+    player.vy = 0;
+    player.hook = null;
+    audio.effect('rod');
+    createParticles(player.x + player.w / 2, player.y + player.h / 2, '#7ed9d1', 10);
+  }
 
   const touchingWall = wallProbe();
   player.wallDirection = touchingWall;
@@ -383,9 +413,10 @@ function update(dt) {
   const maxSpeed = player.crouched && !player.sliding ? 90 : 205;
   const acceleration = player.grounded ? 1050 : 620;
   const deceleration = level.gimmick === 'ice' ? 260 : (player.grounded ? 1350 : 180);
-  if (player.sliding) player.vx = approach(player.vx, 0, 185 * dt);
+  if (player.dashTimer > 0) player.vx = player.facing * 355;
+  else if (player.sliding) player.vx = approach(player.vx, 0, 185 * dt);
   else player.vx = direction ? approach(player.vx, direction * maxSpeed, acceleration * dt) : approach(player.vx, 0, deceleration * dt);
-  player.vy += 1120 * dt;
+  if (player.dashTimer <= 0) player.vy += 1120 * dt;
   if (!player.grounded && touchingWall && player.vy > 95 && direction === touchingWall) player.vy = 95;
   if (!jumpHeld && player.jumpHeld && player.vy < -150) player.vy += 1350 * dt;
   if (player.vy >= 0) player.jumpHeld = false;
@@ -450,6 +481,15 @@ function update(dt) {
 
   for (const enemy of level.runtimeEnemies) {
     if (!enemy.alive) continue;
+    if (enemy.state === 'launched') {
+      enemy.timer -= dt;
+      enemy.x += enemy.vx * dt;
+      enemy.y += enemy.vy * dt;
+      enemy.vy += 880 * dt;
+      enemy.rotation += Math.sign(enemy.vx) * dt * 9;
+      if (enemy.y > 600 || enemy.timer <= 0) enemy.alive = false;
+      continue;
+    }
     if (enemy.state === 'defeated') { enemy.timer -= dt; if (enemy.timer <= 0) enemy.alive = false; continue; }
     enemy.timer -= dt;
     enemy.cooldown -= dt;
@@ -473,7 +513,7 @@ function update(dt) {
         enemy.y += enemy.vy * dt;
         if (enemy.timer <= 0) { enemy.state = 'patrol'; enemy.cooldown = 2.5; enemy.vx = -targetDirection * 40; enemy.vy = 0; }
       }
-    } else if (enemy.type === 'glowgulp') {
+    } else if (enemy.type === 'bloop') {
       if (enemy.state === 'patrol' && enemy.cooldown <= 0 && playerDistance < 280) {
         enemy.state = 'alert'; enemy.timer = 0.68; enemy.vx = 0;
       } else if (enemy.state === 'alert' && enemy.timer <= 0) {
@@ -489,8 +529,14 @@ function update(dt) {
       const hasGround = staticSolids().some(solid => overlaps({ x: enemy.x, y: enemy.y + enemy.h + 3, w: enemy.w, h: 3 }, solid));
       if (!hasGround) enemy.vx *= -1;
     }
-    if (overlaps(player, enemy)) {
-      if (player.vy > 90) {
+    const hurtbox = enemyHurtbox(enemy);
+    if (overlaps(player, hurtbox)) {
+      const slideAttack = player.sliding && Math.abs(player.vx) > 120;
+      const stompAttack = player.vy > 90 && player.y + player.h <= hurtbox.y + hurtbox.h * 0.62;
+      if (slideAttack) {
+        launchEnemy(enemy, Math.sign(player.vx) || player.facing);
+        player.vx *= 0.82;
+      } else if (stompAttack) {
         enemy.state = 'defeated'; enemy.timer = 0.55; enemy.vx = 0;
         player.vy = -300;
         audio.effect('hit');
@@ -672,6 +718,13 @@ function drawAtlasGridCell(image, index, x, y, w, h, flip = false) {
   ctx.restore();
 }
 
+function drawPropCell(index, x, y, w, h) {
+  const image = images.props;
+  const cellWidth = image.width / 4;
+  const cellHeight = image.height / 3;
+  ctx.drawImage(image, (index % 4) * cellWidth, Math.floor(index / 4) * cellHeight, cellWidth, cellHeight, x, y, w, h);
+}
+
 function drawFinn() {
   let frame = 0;
   if (player.hurtTimer > 0) frame = 7;
@@ -741,48 +794,50 @@ function draw() {
   }
   for (const hook of level.hooks) {
     const x = screenX(hook[0] * TILE + 16), y = hook[1] * TILE + 16;
-    ctx.strokeStyle = '#f1c34e'; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(x, y, 7, 0, Math.PI * 2); ctx.stroke();
+    drawPropCell(1, x - 20, y - 20, 40, 40);
   }
   for (const pearl of level.runtimePearls) if (!pearl.taken) {
-    ctx.fillStyle = '#fff5d6'; ctx.beginPath(); ctx.arc(screenX(pearl.x), pearl.y, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#78d9d0'; ctx.fillRect(screenX(pearl.x) - 2, pearl.y - 9, 4, 3);
+    drawPropCell(0, screenX(pearl.x) - 12, pearl.y - 12, 24, 24);
   }
   for (const pickup of level.runtimePickups) if (!pickup.taken) {
-    drawAtlasCell(images.lures, 8, LURES.findIndex(lure => lure.id === pickup.id), screenX(pickup.x) - 25, pickup.y - 25, 50, 50);
+    drawPropCell(4, screenX(pickup.x) - 27, pickup.y - 27, 54, 54);
   }
   for (const secret of level.runtimeSecrets) if (!secret.taken) {
-    const lure = LURES.find(item => item.id === secret.id);
-    ctx.strokeStyle = lure.color; ctx.lineWidth = 3; ctx.strokeRect(screenX(secret.x) - 13, secret.y - 13, 26, 26);
+    drawPropCell(5, screenX(secret.x) - 22, secret.y - 22, 44, 44);
   }
   for (const enemy of level.runtimeEnemies) if (enemy.alive) {
     let frame = 1 + Math.floor(elapsed * 6) % 2;
-    if (enemy.state === 'alert') frame = enemy.type === 'glowgulp' ? 4 : 3;
+    if (enemy.state === 'alert') frame = enemy.type === 'bloop' ? 4 : 3;
     if (enemy.state === 'attack') frame = enemy.type === 'clackett' && enemy.timer > 0.35 ? 4 : 5;
     if (enemy.state === 'defeated') frame = 7;
+    if (enemy.state === 'launched') frame = 7;
     const size = enemy.type === 'clackett' ? 82 : (enemy.type === 'skipper' ? 88 : 92);
     const drawX = screenX(enemy.x + enemy.w / 2) - size / 2;
     const drawY = enemy.y + enemy.h - size + (enemy.type === 'skipper' ? 25 : 7);
-    drawAtlasGridCell(images[enemy.type], frame, drawX, drawY, size, size, enemy.vx < 0);
+    if (enemy.state === 'launched') {
+      ctx.save();
+      ctx.translate(drawX + size / 2, drawY + size / 2);
+      ctx.rotate(enemy.rotation);
+      drawAtlasGridCell(images[enemy.type], frame, -size / 2, -size / 2, size, size, false);
+      ctx.restore();
+    } else drawAtlasGridCell(images[enemy.type], frame, drawX, drawY, size, size, enemy.vx < 0);
   }
   for (const bubble of enemyProjectiles) {
     const x = screenX(bubble.x), y = bubble.y;
-    ctx.fillStyle = '#fff3ad88'; ctx.beginPath(); ctx.arc(x, y, 8, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#72dfe0'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = '#ffffffcc'; ctx.fillRect(x - 3, y - 4, 3, 3);
+    drawPropCell(11, x - 13, y - 13, 26, 26);
   }
   for (const checkpoint of level.checkpoints) {
     const active = player.checkpoint.x >= checkpoint[0] * TILE;
-    ctx.fillStyle = '#765033'; ctx.fillRect(screenX(checkpoint[0] * TILE + 10), checkpoint[1] * TILE - 10, 5, 45);
-    ctx.fillStyle = active ? '#72e2bd' : '#8b8b83'; ctx.fillRect(screenX(checkpoint[0] * TILE + 15), checkpoint[1] * TILE - 8, 20, 15);
+    ctx.save(); ctx.globalAlpha = active ? 1 : 0.62;
+    drawPropCell(2, screenX(checkpoint[0] * TILE) - 9, checkpoint[1] * TILE - 34, 52, 52);
+    ctx.restore();
   }
   for (const sign of level.signs) {
-    ctx.fillStyle = '#67442e'; ctx.fillRect(screenX(sign[0] * TILE), sign[1] * TILE, 6, 30);
-    ctx.fillStyle = '#ad7442'; ctx.fillRect(screenX(sign[0] * TILE - 8), sign[1] * TILE - 7, 28, 15);
+    drawPropCell(3, screenX(sign[0] * TILE) - 22, sign[1] * TILE - 24, 54, 54);
   }
   for (const particle of particles) { ctx.fillStyle = particle.color; ctx.fillRect(screenX(particle.x), particle.y, 4, 4); }
 
-  const fishIndex = [0, 2, 2, 3, 4][levelIndex];
-  drawAtlasCell(images.enemy, 5, fishIndex, screenX(level.goal[0] * TILE) - 20, level.goal[1] * TILE - 10, 70, 70);
+  drawPropCell(6 + levelIndex, screenX(level.goal[0] * TILE) - 34, level.goal[1] * TILE - 20, 76, 76);
   drawFinn();
 
   ctx.fillStyle = '#071726e8'; ctx.fillRect(14, 14, 530, 60);
