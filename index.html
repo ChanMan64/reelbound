@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="ui-redesign.css">
   <link rel="stylesheet" href="world-map.css">
+  <link rel="stylesheet" href="nautical-polish.css">
   <link rel="stylesheet" href="mobile-controls.css">
 </head>
 <body>
@@ -21,16 +22,19 @@
     <canvas id="game" width="960" height="540" tabindex="0" aria-label="Reelbound platform game"></canvas>
     <div id="overlay" class="overlay">
       <div class="panel voyage-menu">
+        <div class="wood-grain" aria-hidden="true"></div>
+        <div class="gunwale gunwale-top" aria-hidden="true"></div><div class="gunwale gunwale-bottom" aria-hidden="true"></div>
+        <div class="rope-loop rope-left" aria-hidden="true"></div><div class="rope-loop rope-right" aria-hidden="true"></div>
         <div class="menu-rivet rivet-left"></div><div class="menu-rivet rivet-right"></div>
-        <div class="menu-character finn-portrait" aria-hidden="true"></div>
-        <div class="menu-character clackett-portrait" aria-hidden="true"></div>
+        <div class="menu-character finn-portrait" aria-hidden="true"><img src="assets/sprites/finn-atlas.png" alt=""></div>
+        <div class="menu-lure-rack" aria-hidden="true"><span class="rack-label">FINN'S FAVORITES</span><i class="rack-lure lure-one"><img src="assets/sprites/lure-atlas.png" alt=""></i><i class="rack-lure lure-two"><img src="assets/sprites/lure-atlas.png" alt=""></i><i class="rack-lure lure-three"><img src="assets/sprites/lure-atlas.png" alt=""></i><i class="rack-lure lure-four"><img src="assets/sprites/lure-atlas.png" alt=""></i><b class="rack-hook"></b></div>
         <div class="menu-copy">
           <p class="kicker">THE TACKLEWICK VOYAGE LOG</p>
           <h2 id="overlay-title">Reelbound</h2>
           <p id="overlay-copy">Five strange tides. Five legendary catches. One very dependable coat.</p>
           <button id="primary"><span>CAST OFF</span></button>
         </div>
-        <div class="chart-divider"><span></span><b>THE GREAT TIDE CHART</b><span></span></div>
+        <div class="chart-divider"><span></span><b>CARVED INTO THE CAPTAIN'S SKIFF</b><span></span></div>
         <p class="campaign-tease">8 WORLDS · 40 MAIN VOYAGES · HIDDEN FISHING HOLES</p>
         <p class="controls"><span>MOVE <b>← →</b></span><span>JUMP <b>SPACE</b></span><span>CROUCH / SLIDE <b>CTRL</b></span><span>DASH <b>Q</b></span><span>ROD <b>E</b></span></p>
       </div>

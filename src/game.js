@@ -192,12 +192,35 @@ function startLevel(index = 0) {
   renderLureMenu();
 }
 
-function selectWorld(index) {
+const WORLD_POSITIONS = [[11, 72], [25, 35], [39, 68], [53, 28], [66, 66], [78, 34], [88, 67], [94, 22]];
+
+function moveMapBoat(index, instant = false) {
+  const boat = ui.worldIslands.querySelector('.map-boat');
+  if (!boat) return;
+  const [x, y] = WORLD_POSITIONS[index];
+  if (instant) boat.classList.add('instant');
+  else {
+    boat.classList.remove('instant', 'sailing');
+    void boat.offsetWidth;
+    boat.classList.add('sailing');
+    setTimeout(() => boat.classList.remove('sailing'), 1150);
+  }
+  boat.style.setProperty('--boat-x', `${x}%`);
+  boat.style.setProperty('--boat-y', `${y}%`);
+  if (instant) requestAnimationFrame(() => boat.classList.remove('instant'));
+}
+
+function selectWorld(index, instant = false) {
   selectedWorld = index;
   save.campaign.selectedWorld = index;
   persist();
   const world = CAMPAIGN[index];
-  [...ui.worldIslands.children].forEach((island, islandIndex) => island.classList.toggle('selected', islandIndex === index));
+  [...ui.worldIslands.querySelectorAll('.world-island')].forEach((island, islandIndex) => {
+    island.classList.toggle('selected', islandIndex === index);
+    island.setAttribute('aria-pressed', islandIndex === index ? 'true' : 'false');
+  });
+  moveMapBoat(index, instant);
+  if (!instant) audio.effect('menu');
   ui.worldNumber.textContent = `WORLD ${world.number}`;
   ui.worldName.textContent = world.name;
   ui.worldName.style.color = world.accent;
@@ -230,17 +253,21 @@ function selectWorld(index) {
 }
 
 function renderWorldMap() {
-  ui.worldIslands.innerHTML = '';
+  ui.worldIslands.innerHTML = `<svg class="voyage-route" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true"><path d="M110 432 C160 430 185 250 250 210 S335 405 390 408 S480 175 530 168 S610 395 660 396 S730 210 780 204 S840 390 880 402 S920 175 940 132"/></svg><div class="map-compass" aria-hidden="true"><i></i><b>N</b></div><div class="map-boat instant" aria-hidden="true"><span class="boat-sail"></span><span class="boat-hull"></span><span class="boat-flag"></span><span class="wake wake-one"></span><span class="wake wake-two"></span><span class="wake wake-three"></span><span class="wake wake-four"></span></div>`;
   CAMPAIGN.forEach((world, index) => {
     const island = document.createElement('button');
     island.className = `world-island ${world.prototypeLevel === null ? 'uncharted' : ''}`;
     island.style.setProperty('--world-color', world.color);
     island.style.setProperty('--world-accent', world.accent);
-    island.innerHTML = `<span class="island-shape">${world.icon}</span><span class="world-label"><small>WORLD ${world.number}</small><strong>${world.name}</strong><em>${world.prototypeLevel === null ? 'UNCHARTED' : 'PROTOTYPE READY'}</em></span><span class="boat">⛵</span>`;
+    island.style.setProperty('--island-x', `${WORLD_POSITIONS[index][0]}%`);
+    island.style.setProperty('--island-y', `${WORLD_POSITIONS[index][1]}%`);
+    island.style.setProperty('--float-delay', `${index * -.47}s`);
+    island.setAttribute('aria-pressed', 'false');
+    island.innerHTML = `<span class="island-shape"><i>${world.icon}</i></span><span class="world-label"><small>WORLD ${world.number}</small><strong>${world.name}</strong><em>${world.prototypeLevel === null ? 'UNCHARTED' : 'CHARTED'}</em></span>`;
     island.onclick = () => selectWorld(index);
     ui.worldIslands.append(island);
   });
-  selectWorld(Math.min(selectedWorld, CAMPAIGN.length - 1));
+  selectWorld(Math.min(selectedWorld, CAMPAIGN.length - 1), true);
 }
 
 function openWorldMap() {
