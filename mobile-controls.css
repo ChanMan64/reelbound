@@ -1,0 +1,50 @@
+.touch-actions {
+  position: relative;
+  align-items: end;
+  gap: 8px !important;
+}
+
+.touch-actions .slide-button {
+  width: 60px;
+  height: 60px;
+  font-size: 8px;
+}
+
+.touch-actions .jump-button {
+  width: 80px !important;
+  height: 80px !important;
+  background: #174b5ed9;
+  border-color: #d9f4e9cc;
+  font-weight: 700;
+}
+
+.touch-actions .reel-button {
+  width: 54px;
+  height: 54px;
+  margin-bottom: 20px;
+  display: grid;
+  place-content: center;
+  gap: 0;
+  color: #fff7ce;
+  background: radial-gradient(circle at 38% 30%, #ffe078, #e67e3d 54%, #7d2f2f 100%);
+  border: 3px solid #fff0a6;
+  box-shadow: 0 0 0 4px #17394bcc, 0 0 18px #ffc64e99, inset 0 -5px 0 #8f3f2f88;
+  font-size: 7px;
+  font-weight: 700;
+}
+
+.touch-actions .reel-button .reel-icon {
+  font: 22px/18px 'Changa One', sans-serif;
+}
+
+.touch-actions .reel-button.active {
+  background: radial-gradient(circle at 38% 30%, #fff6b4, #ff9b48 58%, #a33d35 100%);
+  box-shadow: 0 0 0 4px #17394bcc, 0 0 26px #ffe25ecc;
+}
+
+@media (max-width: 760px) and (pointer: coarse) {
+  .touch-controls {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+  }
+}
