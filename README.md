@@ -11,12 +11,20 @@ Play at [chanman64.github.io/reelbound](https://chanman64.github.io/reelbound/).
 | Action | Keyboard |
 | --- | --- |
 | Move | A/D or left/right |
-| Variable jump | Space, Z, or up |
-| Rod attack / retrieve / grapple | E or X |
+| Variable jump / double jump | Space, Z, or up |
+| Crouch / momentum slide | Ctrl |
+| Dash / surge jump starter | Q or Shift |
+| Rod attack / retrieve / grapple | E |
 | Open tackle box | T or Tab |
 | Pause | Escape |
 
-Touch devices use two movement buttons, Jump, Rod, and a separate Tackle button that pauses play.
+Touch devices use two movement buttons plus Jump, Slide, Dash, Rod, and a smaller Tackle button. Slide-jumps, surge jumps, automatic hook targeting, and three-pearl dash refills keep the expressive movement practical on iPhone and iPad without requiring fighting-game inputs.
+
+## Movement and Reel Flow
+
+Finn's moves are designed to connect. A slide can become a fast skim jump, a dash can be jump-cancelled into a long surge jump, and releasing a grapple with speed preserves the swing. Pearls and enemy takedowns build Reel Flow, which gradually raises running speed and supports longer improvised routes. Finn carries one air dash; landing restores it, while collecting three pearls in the air restores it early.
+
+Enemy contact removes one of three hearts and knocks Finn away. Water and major hazards return him to the last checkpoint. This keeps ordinary encounters playful while preserving stakes around level hazards.
 
 ## Demo voyages
 
