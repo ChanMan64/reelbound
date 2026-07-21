@@ -1,3 +1,5 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {LEVELS} from '../src/levels.js';
-test('demo includes five complete stages',()=>{assert.equal(LEVELS.length,5);for(const l of LEVELS){assert.ok(l.name&&l.fish);assert.ok(l.platforms.length>=8);assert.ok(l.hooks.length>=4);assert.ok(l.pearls.length>=4);assert.ok(l.goal[0]>l.start[0])}});
-test('every stage has a unique catch',()=>assert.equal(new Set(LEVELS.map(l=>l.fish)).size,5));
+import test from'node:test';import assert from'node:assert/strict';import{LEVELS}from'../src/levels.js';
+test('three full-length voyages',()=>{assert.equal(LEVELS.length,3);for(const l of LEVELS){assert.ok(l.width>=320);assert.ok(l.goal[0]>l.width-8);assert.ok(l.platforms.length>=50);assert.ok(l.checkpoints.length>=5);assert.ok(l.hooks.length>=22);assert.ok(l.pearls.length>=30);assert.ok(l.par>=300)}});
+test('each voyage supports movement puzzles',()=>{for(const l of LEVELS){assert.ok(l.movers.length>=3);assert.ok(l.springs.length>=3);assert.ok(l.switches.length>=1);assert.ok(l.gates.length>=1);assert.ok(l.signs.length>=4)}});
+test('unique catches and environments',()=>{assert.equal(new Set(LEVELS.map(l=>l.fish)).size,3);assert.equal(new Set(LEVELS.map(l=>l.water)).size,3)});
+test('every finish flag overlaps a supporting platform',()=>{for(const l of LEVELS){const flag={x:l.goal[0],y:l.goal[1],w:2,h:2};assert.ok(l.platforms.some(p=>flag.x<p[0]+p[2]&&flag.x+flag.w>p[0]&&flag.y< p[1]+p[3]&&flag.y+flag.h>=p[1]),l.name)}});
