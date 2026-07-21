@@ -45,3 +45,7 @@ export function flowRank(flow) {
   if (flow >= 50) return 'ON A ROLL';
   return 'BUILD FLOW';
 }
+
+export function gameplayCameraTarget(playerX, worldWidth, viewportWidth = 960, anchorX = 350) {
+  return Math.max(0, Math.min(worldWidth - viewportWidth, playerX - anchorX));
+}
