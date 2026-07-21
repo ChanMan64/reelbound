@@ -1,7 +1,7 @@
-import { LEVELS, TILE, LURES } from './levels.js?v=flow1';
+import { LEVELS, TILE, LURES } from './levels.js?v=harbor2';
 import { CAMPAIGN } from './campaign.js?v=flow1';
 import { MOVEMENT, flowSpeed, gravityForVelocity, flowRank, gameplayCameraTarget } from './movement.js?v=objects1';
-import { choosePlatformCrop, platformDetailFractions, platformMaterialSeed } from './platform-style.js?v=objects1';
+import { choosePlatformCrop, harborPlatformRecipe, platformDetailFractions, platformMaterialSeed } from './platform-style.js?v=harbor2';
 
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
@@ -171,6 +171,7 @@ const overlaps = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h
 const approach = (value, target, amount) => value < target ? Math.min(value + amount, target) : Math.max(value - amount, target);
 const formatTime = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const FINN_SPRITE_SCALE = 0.255;
+const FINN_ACTION_SCALES = [0.224, 0.224, 0.216, 0.21];
 
 function persist() { localStorage.setItem('reelbound-v4', JSON.stringify(save)); }
 
@@ -195,7 +196,7 @@ function makeRuntimeLevel() {
     x: m[0] * TILE, y: m[1] * TILE, w: m[2] * TILE, h: m[3] * TILE,
     baseX: m[0] * TILE, baseY: m[1] * TILE, travelX: m[4], travelY: m[5],
     speed: m[6], phase: index * 0.83, previousX: m[0] * TILE, previousY: m[1] * TILE,
-    deltaX: 0, deltaY: 0,
+    deltaX: 0, deltaY: 0, style: m[7] || null,
   }));
   level.runtimePickups = level.lurePickups.map(p => ({
     x: p[0] * TILE, y: p[1] * TILE, id: p[2], taken: save.lures.includes(p[2]),
@@ -350,7 +351,7 @@ function showTitle() {
 function staticSolids() {
   return level.platforms.map((p, index) => ({
     x: p[0] * TILE, y: p[1] * TILE, w: p[2] * TILE, h: p[3] * TILE,
-    kind: 'static', id: index,
+    kind: 'static', id: index, style: p[4] || null,
   }));
 }
 
@@ -1000,6 +1001,75 @@ function drawPlatformNineSlice(crop, sourceY, sourceHeight, x, y, width, height)
   ctx.drawImage(images.environment, crop.x + crop.w - sourceCap, sourceY, sourceCap, sourceHeight, x + width - destinationCap - 1, y, destinationCap + 1, height);
 }
 
+function drawHarborPlatformAccents(accent, x, y, w, h, seed) {
+  ctx.save();
+  ctx.lineWidth = 2;
+  if (accent === 'mooring' || accent === 'rope-end') {
+    const posts = accent === 'mooring' && w > 240 ? [x + 18, x + w / 2, x + w - 18] : [x + 13, x + w - 13];
+    ctx.fillStyle = '#4a2c24';
+    ctx.strokeStyle = '#1f1720';
+    for (const postX of posts) {
+      ctx.fillRect(Math.round(postX - 3), y - 9, 7, 19);
+      ctx.strokeRect(Math.round(postX - 3), y - 9, 7, 19);
+      ctx.fillStyle = '#d6a758'; ctx.fillRect(Math.round(postX - 3), y - 7, 7, 3); ctx.fillStyle = '#4a2c24';
+    }
+    ctx.strokeStyle = '#d4aa68';
+    ctx.beginPath();
+    for (let index = 0; index < posts.length - 1; index++) {
+      const left = posts[index], right = posts[index + 1];
+      ctx.moveTo(left, y - 1); ctx.quadraticCurveTo((left + right) / 2, y + 9, right, y - 1);
+    }
+    ctx.stroke();
+  } else if (accent === 'cargo') {
+    ctx.strokeStyle = '#3b241f';
+    const divisions = Math.max(1, Math.min(3, Math.floor(w / 76)));
+    for (let index = 1; index < divisions; index++) {
+      const seam = Math.round(x + w * index / divisions);
+      ctx.beginPath(); ctx.moveTo(seam, y + 12); ctx.lineTo(seam, y + Math.min(h + 8, 54)); ctx.stroke();
+    }
+    ctx.fillStyle = '#e7c16d';
+    ctx.fillRect(x + 11, y + 13, 4, 4);
+    ctx.fillRect(x + w - 15, y + 13, 4, 4);
+    ctx.fillStyle = '#75a897';
+    ctx.fillRect(x + 20 + seed % Math.max(1, w - 50), y + 24, 9, 3);
+  } else if (accent === 'hanging-rope') {
+    ctx.strokeStyle = '#d6aa68';
+    for (const ropeX of [x + 12, x + w - 12]) {
+      ctx.beginPath(); ctx.moveTo(ropeX, y + 14); ctx.quadraticCurveTo(ropeX + (ropeX < x + w / 2 ? 5 : -5), y + 27, ropeX, y + 36); ctx.stroke();
+      ctx.fillStyle = '#d26346'; ctx.fillRect(ropeX - 3, y + 34, 7, 5);
+    }
+  } else if (accent === 'iron-bands') {
+    ctx.fillStyle = '#292b32bb';
+    ctx.fillRect(x + 8, y + 7, 4, Math.max(20, h - 5));
+    ctx.fillRect(x + w - 12, y + 7, 4, Math.max(20, h - 5));
+    ctx.fillStyle = '#d7b664';
+    ctx.fillRect(x + 8, y + 13, 4, 3); ctx.fillRect(x + w - 12, y + 13, 4, 3);
+  } else if (accent === 'lanterns') {
+    if (w > 150) {
+      drawPropCell(2, x + 16, y - 24, 25, 25);
+      drawPropCell(2, x + w - 41, y - 24, 25, 25);
+    }
+  } else if (accent === 'float-rope') {
+    ctx.strokeStyle = '#ead09a';
+    ctx.beginPath(); ctx.moveTo(x + 8, y + 12); ctx.quadraticCurveTo(x + w / 2, y + 22, x + w - 8, y + 12); ctx.stroke();
+    ctx.fillStyle = '#d65f45';
+    ctx.fillRect(x + 7, y + 8, 6, 6); ctx.fillRect(x + w - 13, y + 8, 6, 6);
+  }
+  ctx.restore();
+}
+
+function drawHarborPlatform(platform, moving, x, y, w, h, sourceY, sourceHeight, seed) {
+  const recipe = harborPlatformRecipe(platform.style, w, seed, moving);
+  const visualHeight = Math.max(recipe.minimumDepth, h + 10);
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x - 6, y - 28, w + 12, Math.max(h + 58, visualHeight + 30));
+  ctx.clip();
+  drawPlatformNineSlice(recipe.crop, sourceY, sourceHeight, x - 4, y - 2, w + 8, visualHeight);
+  ctx.restore();
+  drawHarborPlatformAccents(recipe.accent, x, y, w, h, seed);
+}
+
 function drawPlatform(platform, moving = false) {
   const x = screenX(platform.x);
   const y = Math.round(platform.y);
@@ -1011,6 +1081,10 @@ function drawPlatform(platform, moving = false) {
   };
   const [sourceY, sourceHeight] = atlasRows[theme] || atlasRows.star;
   const materialSeed = platformMaterialSeed(platform, levelIndex, TILE);
+  if (theme === 'boats') {
+    drawHarborPlatform(platform, moving, x, y, w, h, sourceY, sourceHeight, materialSeed);
+    return;
+  }
   const crop = choosePlatformCrop(w, materialSeed, moving);
   const visualHeight = moving ? Math.max(42, h + 14) : Math.max(48, h + 12);
   ctx.save();
@@ -1122,8 +1196,9 @@ function drawFinn() {
     const actionFrame = player.sliding ? (player.slideTimer > .42 ? 2 : 3) : (player.crouchTime < .12 ? 0 : 1);
     const actionCrops = [[120,160,290,420],[575,170,300,410],[980,225,410,360],[1450,280,430,310]];
     const [sourceX, cropY, cropW, cropH] = actionCrops[actionFrame];
-    const width = cropW * FINN_SPRITE_SCALE;
-    const height = cropH * FINN_SPRITE_SCALE;
+    const actionScale = FINN_ACTION_SCALES[actionFrame];
+    const width = cropW * actionScale;
+    const height = cropH * actionScale;
     const x = screenX(player.x + player.w / 2) - width / 2;
     const y = Math.round(player.y + player.h - height);
     ctx.save();

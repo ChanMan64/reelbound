@@ -22,60 +22,61 @@ function baseLevel(t){return {...t,width:236,start:[2,13],goal:[231,12],platform
 
 function buildHarbor(t){
  const l=baseLevel(t);
+ l.width=268;
+ l.goal=[263,12];
+ l.routeStyle='A grounded harbor promenade opens into cargo stairs, a safe wall-work tower, a reel shortcut over fishing skiffs, and a moving-float regatta before the final pier.';
  l.lessons=[
   {id:'move_jump',x:0,purpose:'Safe runway and low steps establish acceleration and variable jump height.'},
-  {id:'crouch_slide',x:18,purpose:'Low rigging makes the reduced collider visible before slide speed matters.'},
-  {id:'double_jump',x:34,purpose:'Rising pearl stair teaches the optional second jump with a safe floor below.'},
-  {id:'dash',x:52,purpose:'A readable water gap makes dash useful while double jump remains a recovery.'},
-  {id:'wall_movement',x:69,purpose:'A catch-safe shaft teaches wall slide and wall jump without a death pit.'},
-  {id:'reel_grapple',x:97,purpose:'A ring offers a fast high route while the ordinary route remains possible.'},
-  {id:'slide_combat',x:120,purpose:'Low rigging flows directly into Clackett so a fast slide becomes an attack.'},
-  {id:'skipper_read',x:143,purpose:'Open air gives the gull room to telegraph and complete its dive.'},
-  {id:'moving_docks',x:166,purpose:'Isolated moving docks teach riding and jumping from carried momentum.'},
-  {id:'final_remix',x:199,purpose:'A short finale recombines gaps, walls, enemies, dash, and reel.'},
+  {id:'crouch_slide',x:22,purpose:'A long quay leads into low rigging so crouch and slide read as natural harbor movement.'},
+  {id:'double_jump',x:38,purpose:'Cargo stairs teach ordinary jumps while an optional pearl line introduces the second jump.'},
+  {id:'dash',x:67,purpose:'A single clear water channel gives dash a purpose without making it the only safe answer.'},
+  {id:'wall_movement',x:89,purpose:'A cargo-filled piling shaft makes wall movement optional, visible, and safe to practice.'},
+  {id:'reel_grapple',x:124,purpose:'Fishing rings create a fast high route while small skiffs preserve a readable low route.'},
+  {id:'slide_combat',x:156,purpose:'Low tackle rigging points directly at Clackett so the slide attack is understood immediately.'},
+  {id:'skipper_read',x:175,purpose:'A broad uncluttered fish-market pier gives Skipper room to clearly telegraph its dive.'},
+  {id:'moving_docks',x:194,purpose:'A contained regatta basin teaches riding and leaving moving floats with safe sightlines.'},
+  {id:'final_remix',x:224,purpose:'The lighthouse approach combines the learned actions while offering grounded and expressive routes.'},
  ];
  l.platforms.push(
-  [0,15,18,2],[6,12,3,1],[11,10,3,1],
-  [18,15,16,2],[23,13,3,1],[31,10,3,1],
-  [34,15,18,2],[37,12,3,1],[40,9,3,1],[43,6,3,1],[46,9,3,1],[49,12,3,1],
-  [52,15,7,2],[64,15,7,2],[56,8,3,1],[60,10,3,1],
-  [71,15,7,2],[72,12,2,3],[77,6,2,9],[77,6,8,1],[84,8,4,1],[88,11,4,1],[92,14,5,3],
-  [97,15,7,2],[108,13,8,4],[116,15,4,2],[103,8,3,1],[108,5,3,1],
-  [120,15,23,2],[124,13,4,1],[136,10,4,1],
-  [143,15,8,2],[154,14,7,3],[148,10,4,1],[161,15,5,2],
-  [166,15,4,2],[176,11,5,6],[181,14,4,3],[194,11,5,6],
-  [199,15,5,2],[208,13,4,4],[213,9,2,8],[215,9,6,1],[221,12,5,5],[226,15,10,2]
+  [0,15,11,2,'quay'],[5,11,3,1,'jetty'],[11,14,4,3,'cargo'],[16,12,5,5,'cargo'],[17,8,3,1,'gantry'],
+  [22,15,15,2,'quay'],[26,13,8,1,'gantry'],[38,15,6,2,'jetty'],
+  [44,14,4,3,'cargo'],[45,9,3,1,'jetty'],[49,12,5,5,'cargo'],[51,7,3,1,'gantry'],[55,10,5,7,'boathouse'],[58,6,3,1,'jetty'],[61,12,5,5,'jetty'],[64,9,3,1,'gantry'],
+  [67,15,8,2,'quay'],[71,10,4,1,'jetty'],[78,14,1,1,'float'],[80,15,8,2,'quay'],[83,10,4,1,'gantry'],
+  [89,15,9,2,'quay'],[93,10,3,1,'jetty'],[99,12,2,5,'piling'],[101,14,2,1,'cargo'],[103,12,2,1,'cargo'],[101,10,2,1,'cargo'],[103,8,2,1,'cargo'],[105,8,2,9,'piling'],[105,8,7,1,'gantry'],[108,5,4,1,'jetty'],[112,10,5,1,'jetty'],[116,7,4,1,'gantry'],[118,12,5,5,'cargo'],
+  [124,15,7,2,'quay'],[128,10,3,1,'jetty'],[131,15,6,2,'jetty'],[136,8,3,1,'gantry'],[140,14,5,3,'float'],[144,6,4,1,'jetty'],[148,12,5,5,'jetty'],[152,8,3,1,'gantry'],
+  [156,15,12,2,'quay'],[159,9,4,1,'jetty'],[160,13,7,1,'gantry'],[168,14,6,3,'cargo'],[170,10,4,1,'jetty'],
+  [175,15,17,2,'quay'],[178,12,3,1,'cargo'],[181,10,4,1,'gantry'],[186,8,4,1,'jetty'],[190,13,5,4,'cargo'],
+  [194,15,5,2,'jetty'],[198,11,3,1,'gantry'],[209,9,3,1,'jetty'],[217,14,6,3,'jetty'],[224,15,5,2,'quay'],[227,11,3,1,'gantry'],
+  [229,15,7,2,'quay'],[235,9,3,1,'jetty'],[239,13,5,4,'cargo'],[242,7,3,1,'gantry'],[246,10,2,7,'piling'],[248,10,6,1,'gantry'],[252,6,3,1,'jetty'],[254,12,6,5,'cargo'],[260,15,8,2,'quay']
  );
- l.hazards.push([59,15,5,2],[104,15,4,2],[151,15,3,2],[170,15,6,2],[185,15,9,2],[204,15,4,2],[212,15,1,2]);
- l.movers.push([169,13,3,1,0,-96,1.15],[184,13,3,1,160,0,1]);
- l.hooks.push([106,7],[111,6],[188,7],[218,5]);
- l.enemies.push([129,13,'clackett'],[149,13,'skipper'],[201,13,'clackett'],[218,10,'skipper']);
- l.checkpoints.push([55,13],[119,13],[164,13],[199,13]);
- l.lurePickups.push([109,3,'ember']);
- l.secrets.push([45,4,'ember'],[113,8,'ember'],[219,6,'ember']);
+ l.hazards.push([75,15,3,2],[79,15,1,2],[137,15,3,2],[145,15,3,2],[153,15,3,2],[192,15,2,2],[199,15,18,2],[236,15,3,2],[244,15,2,2],[248,15,6,2]);
+ l.movers.push([201,13,4,1,0,-96,1,'float'],[209,12,4,1,128,0,.85,'float']);
+ l.hooks.push([134,7],[143,5],[151,6],[205,7],[213,6],[241,5],[250,4]);
+ l.enemies.push([162,13,'clackett'],[184,13,'skipper'],[227,13,'clackett'],[251,9,'skipper']);
+ l.checkpoints.push([68,13],[124,13],[156,13],[194,13],[224,13]);
+ l.lurePickups.push([149,9,'ember']);
+ l.secrets.push([58,5,'ember'],[146,4,'ember'],[253,4,'ember']);
  l.signs.push(
   [3,13,'FIND YOUR SEA LEGS','Move first. Tap Jump for a hop; hold it to climb higher.'],
-  [20,13,'DUCK THE RIGGING','Hold Ctrl to crouch. Build speed to skim, then Jump during the slide for a fast Skim Jump.'],
-  [35,13,'A SECOND WIND','Jump again in the air. The high pearls are practice, not the only way onward.'],
-  [53,13,'CLEAR THE WATER','Dash for a burst, or Jump during it for a long Surge Jump. Landing or a three-pearl air chain refills it.'],
-  [69,13,'WALL WORK','Hold toward a wall to slide slowly, then Jump to kick away.'],
-  [97,13,'OLD RELIABLE','Tap Reel to strike. Hold near a gold ring to swing, then release with speed for an extra kick.'],
-  [120,13,'LOW AND LOUD','Slide under the beam with speed and carry that momentum through Clackett.'],
-  [144,13,'SKIPPER GULL','Raised wings mean a dive is coming. Move late and let Skipper miss.'],
-  [165,13,'RIDE THE TIDE','Moving docks carry Finn. Jump from them to keep their momentum.'],
-  [199,13,'THE HARBOR TEST','No new tricks now. Choose your own line to the Copper Koi.']
+  [23,13,'DUCK THE RIGGING','Hold Ctrl to crouch. Build speed to skim, then Jump during the slide for a fast Skim Jump.'],
+  [39,13,'CARGO CLIMB','The low route uses ordinary jumps. Jump again in the air to collect the high pearl trail.'],
+  [68,13,'CLEAR THE CHANNEL','Dash across the open water, or use the little float as a calmer recovery route.'],
+  [90,13,'WALL WORK','The cargo steps are safe. Hold toward a piling to slide, then Jump to kick up the faster route.'],
+  [125,13,'OLD RELIABLE','Tap Reel to strike. Hold near a gold ring to swing over the skiffs, then release with speed.'],
+  [157,13,'LOW AND LOUD','Slide under the tackle beam and carry that momentum straight through Clackett.'],
+  [176,13,'SKIPPER GULL','Raised wings mean a dive is coming. The wide market pier gives you room to react.'],
+  [195,13,'THE REGATTA','Moving floats carry Finn. Jump from them to keep their momentum across the basin.'],
+  [225,13,'LIGHTHOUSE RUN','No new tricks now. Take the steady docks or link the high route to the Copper Koi.']
  );
  l.pearls.push(
-  [4,13],[7,11],[12,9],[16,13],
-  [21,13],[24,14],[27,14],[31,11],
-  [36,13],[38,11],[40,8],[43,5],[46,8],[49,11],
-  [55,13],[58,12],[60,11],[62,11],[64,12],[67,13],
-  [72,12],[73,11],[75,10],[76,8],[74,7],[76,6],[80,5],[85,7],[90,10],[94,13],
-  [99,13],[103,10],[106,6],[109,4],[112,7],[116,12],
-  [122,13],[125,13],[128,13],[132,13],[138,9],[141,13],
-  [145,13],[149,9],[153,11],[157,13],[163,13],
-  [168,13],[170,11],[173,9],[177,10],[183,13],[187,10],[191,9],[196,10],
-  [201,13],[204,12],[207,11],[210,12],[214,8],[218,8],[222,11],[227,13],[231,11]
+  [3,13],[7,13],[12,12],[17,10],[20,10],[24,13],[29,13],[34,13],
+  [40,13],[45,12],[49,10],[51,6],[55,8],[58,5],[62,10],[65,12],
+  [69,13],[72,11],[76,12],[78,13],[82,13],[85,11],
+  [91,13],[94,9],[100,11],[102,12],[104,10],[106,7],[109,4],[113,8],[119,10],[124,13],
+  [128,9],[132,13],[135,7],[139,11],[143,5],[147,9],[151,6],[154,12],
+  [158,13],[161,12],[164,12],[168,12],[172,8],[176,13],[181,9],[184,12],[188,7],[191,11],
+  [195,13],[199,11],[202,9],[205,7],[208,10],[212,6],[216,11],[220,12],[224,13],
+  [228,10],[231,13],[235,8],[239,11],[242,6],[247,9],[250,5],[253,5],[256,10],[261,13],[264,11]
  );
  return l;
 }
