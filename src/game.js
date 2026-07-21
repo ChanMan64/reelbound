@@ -789,51 +789,68 @@ function drawPlatform(platform, moving = false) {
     boats: [72, 146], current: [260, 146], wind: [451, 145], ice: [671, 128], star: [850, 134],
   };
   const [sourceY, sourceHeight] = atlasRows[theme] || atlasRows.star;
-  const sourceX = moving ? 1060 : 76;
-  const sourceWidth = moving ? 390 : 202;
-  const segmentWidth = moving ? w : Math.min(96, w);
+  const variants = [{ x: 76, w: 202 }, { x: 334, w: 212 }, { x: 603, w: 161 }, { x: 826, w: 171 }];
+  const tileX = Math.round(platform.x / TILE);
+  const tileY = Math.round(platform.y / TILE);
+  const materialSeed = Math.abs(tileX * 31 + tileY * 17 + Math.round(w / TILE) * 13 + levelIndex * 7);
+  const segmentWidth = moving ? w : Math.min(88, w);
   const visualHeight = moving ? Math.max(42, h + 14) : Math.max(48, h + 12);
   ctx.save();
   ctx.beginPath();
   ctx.rect(x - 5, y - 3, w + 10, Math.max(h + 22, visualHeight));
   ctx.clip();
   if (moving) {
-    ctx.drawImage(images.environment, sourceX, sourceY, sourceWidth, sourceHeight, x - 4, y - 2, w + 8, visualHeight);
+    ctx.drawImage(images.environment, 1060, sourceY, 390, sourceHeight, x - 4, y - 2, w + 8, visualHeight);
   } else {
-    for (let offset = 0; offset < w; offset += segmentWidth - 1) {
+    let segment = 0;
+    for (let offset = 0; offset < w; offset += segmentWidth - 1, segment++) {
       const drawWidth = Math.min(segmentWidth, w - offset + 1);
-      ctx.drawImage(images.environment, sourceX, sourceY, sourceWidth, sourceHeight, x + offset, y - 2, drawWidth, visualHeight);
+      const variant = variants[(materialSeed + segment) % variants.length];
+      ctx.drawImage(images.environment, variant.x, sourceY, variant.w, sourceHeight, x + offset, y - 2, drawWidth, visualHeight);
     }
   }
   ctx.restore();
-  return;
+  drawPlatformSurfaceDetails(theme, x, y, w, materialSeed, moving);
+}
+
+function drawPlatformSurfaceDetails(theme, x, y, w, seed, moving) {
+  ctx.save();
   if (theme === 'boats') {
-    ctx.fillStyle = moving ? '#72513d' : '#5b4032'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = '#c58a4a'; ctx.fillRect(x, y, w, 8);
-    ctx.strokeStyle = '#2b211f'; ctx.lineWidth = 2;
-    for (let px = 0; px < w; px += 32) { ctx.strokeRect(x + px, y + 9, 31, Math.min(22, h - 10)); ctx.fillRect(x + px + 5, y + 15, 3, 3); }
-    if (!moving && h > 40) { ctx.fillStyle = '#2d2827'; for (let px = 12; px < w; px += 48) ctx.fillRect(x + px, y + 26, 8, h - 26); }
+    ctx.fillStyle = '#ffe08a';
+    for (let px = 15 + seed % 18; px < w; px += 61) {
+      ctx.fillRect(x + px, y + 3, 3, 3);
+      ctx.fillStyle = '#56311f'; ctx.fillRect(x + px + 1, y + 4, 1, 1); ctx.fillStyle = '#ffe08a';
+    }
+    if (moving) { ctx.strokeStyle = '#d6a65d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 8, y + 12); ctx.quadraticCurveTo(x + w / 2, y + 22, x + w - 8, y + 12); ctx.stroke(); }
   } else if (theme === 'current') {
-    ctx.fillStyle = '#183a42'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = '#55c9a4'; ctx.fillRect(x, y, w, 7);
-    ctx.strokeStyle = '#2b5960'; for (let px = 0; px < w; px += 28) ctx.strokeRect(x + px, y + 10 + (px % 3), 24, 14);
-    ctx.fillStyle = '#6de6ba'; for (let px = 10; px < w; px += 44) ctx.fillRect(x + px, y - 4, 4, 8);
+    for (let px = 12 + seed % 22; px < w; px += 42) {
+      const sway = Math.sin(elapsed * 2 + px * .07) * 3;
+      ctx.strokeStyle = '#62d99b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + px, y + 4); ctx.quadraticCurveTo(x + px + sway, y - 3, x + px + sway * .5, y - 9); ctx.stroke();
+      ctx.fillStyle = '#b9fff0aa'; ctx.fillRect(x + px + 7, y - 5 - ((elapsed * 18 + px) % 8), 2, 2);
+    }
   } else if (theme === 'wind') {
-    ctx.fillStyle = '#3d4b51'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = '#a7b28a'; ctx.fillRect(x, y, w, 7);
-    ctx.strokeStyle = '#59666a'; for (let px = 8; px < w; px += 30) { ctx.beginPath(); ctx.moveTo(x + px, y + 9); ctx.lineTo(x + px - 8, y + Math.min(h, 34)); ctx.stroke(); }
-    ctx.fillStyle = '#829564'; for (let px = 3; px < w; px += 38) ctx.fillRect(x + px, y - 3, 18, 4);
+    ctx.strokeStyle = '#d6e26f'; ctx.lineWidth = 2;
+    for (let px = 5 + seed % 17; px < w; px += 25) {
+      const sway = Math.sin(elapsed * 3 + px) * 2;
+      ctx.beginPath(); ctx.moveTo(x + px, y + 2); ctx.lineTo(x + px + sway, y - 6 - (px % 5)); ctx.stroke();
+    }
   } else if (theme === 'ice') {
-    ctx.fillStyle = '#38677c'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = '#edf9f4'; ctx.fillRect(x, y, w, 8);
-    ctx.fillStyle = '#9dd8e5'; ctx.fillRect(x, y + 8, w, 5);
-    ctx.strokeStyle = '#4f8ca1'; for (let px = 0; px < w; px += 32) ctx.strokeRect(x + px, y + 14, 31, 18);
+    ctx.fillStyle = '#ffffffcc';
+    for (let px = 11 + seed % 27; px < w; px += 53) {
+      const glow = .45 + Math.sin(elapsed * 3.2 + px) * .3;
+      ctx.globalAlpha = glow; ctx.fillRect(x + px, y + 2, 5, 1); ctx.fillRect(x + px + 2, y, 1, 5);
+    }
   } else {
-    ctx.fillStyle = '#3b3268'; ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = '#c7a8f3'; ctx.fillRect(x, y, w, 7);
-    ctx.strokeStyle = '#685396'; for (let px = 8; px < w; px += 28) { ctx.beginPath(); ctx.moveTo(x + px, y + 11); ctx.lineTo(x + px + 9, y + 24); ctx.lineTo(x + px - 3, y + 35); ctx.stroke(); }
-    ctx.fillStyle = '#8ce4df'; for (let px = 14; px < w; px += 50) ctx.fillRect(x + px, y + 14, 3, 3);
+    const starColors = ['#7ee4df', '#d4b5ff', '#ffd27a'];
+    for (let px = 10 + seed % 21, index = 0; px < w; px += 37, index++) {
+      ctx.globalAlpha = .5 + Math.sin(elapsed * 4 + px) * .38;
+      ctx.fillStyle = starColors[(seed + index) % starColors.length];
+      ctx.fillRect(x + px, y + 10 + (px % 19), 3, 3);
+      ctx.fillRect(x + px + 1, y + 7 + (px % 19), 1, 9);
+      ctx.fillRect(x + px - 2, y + 11 + (px % 19), 7, 1);
+    }
   }
+  ctx.restore();
 }
 
 function drawAtlasCell(image, columns, index, x, y, w, h, flip = false) {
