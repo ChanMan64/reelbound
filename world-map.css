@@ -1,0 +1,30 @@
+.world-map{position:absolute;inset:0;z-index:7;display:grid;place-items:center;background:linear-gradient(#03101ac7,#02090ff2);transition:.18s}
+.chart-table{width:min(900px,96%);height:min(500px,94%);padding:20px 22px;background:#ead8a9;color:#27343a;border:5px solid #6d492d;outline:3px solid #d9a54d;box-shadow:inset 0 0 0 3px #a87943,12px 14px 0 #02080eaa;position:relative;overflow:hidden}
+.chart-table:before{content:"";position:absolute;inset:0;opacity:.18;background:repeating-linear-gradient(7deg,transparent 0 22px,#765333 23px 24px),radial-gradient(circle at 30% 20%,#fff8da,#d1b77f);pointer-events:none}
+.map-heading,.map-body{position:relative;z-index:1}.map-heading{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #916c43;padding-bottom:10px}.map-heading .kicker{color:#477d7a;margin:0}.map-heading h2{font:38px/1 'Changa One';margin:3px 0;color:#233c46;text-shadow:2px 2px #fff2c2}.map-heading button{background:#8f4737;border-color:#6b342b}
+.map-body{display:grid;grid-template-columns:1.25fr .9fr;gap:18px;height:calc(100% - 70px);padding-top:15px}.world-islands{position:relative;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:14px;padding:10px;background:linear-gradient(#3f899399,#236878aa);border:3px solid #745038;box-shadow:inset 0 0 30px #082e42}
+.world-islands:before{content:"";position:absolute;inset:0;background:repeating-radial-gradient(ellipse at 40% 30%,transparent 0 22px,#b8f1df20 23px 25px);pointer-events:none}.world-island{position:relative;z-index:1;display:grid;place-items:center;align-content:center;gap:4px;min-width:0;padding:8px 4px;border:0;background:transparent;color:#f9e9bd;text-shadow:1px 2px #17313a;transition:.15s}.world-island:before{content:"";position:absolute;width:84%;aspect-ratio:1.45;border-radius:50%;background:var(--island-color);clip-path:polygon(7% 46%,23% 18%,48% 6%,78% 20%,96% 48%,79% 74%,54% 91%,25% 81%);box-shadow:0 8px 0 #183d43;opacity:.78;z-index:-1}.world-island:hover,.world-island.selected{transform:translateY(-4px) scale(1.04)}.world-island.selected:after{content:"⛵";position:absolute;right:1px;bottom:2px;font-size:20px;filter:drop-shadow(1px 2px #17313a)}.world-island.locked{filter:grayscale(.75);opacity:.58}.world-island b{font:23px/1 'Changa One';color:#fff2bd}.world-island span{font-size:7px;max-width:90px}.world-island small{font-size:6px;color:#d7f2e4}
+.world-details{background:#f7e9c3c9;border:2px solid #98734b;padding:15px 15px 11px;overflow:auto}.world-details .kicker{color:#b1583f;margin:0}.world-details h3{font:30px/1 'Changa One';color:#173c48;margin:7px 0}.world-details>p{font-size:9px;line-height:1.4;color:#57666a}.world-meta{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:9px 0}.world-meta span{padding:6px;background:#d6c18e;border:1px solid #a27e4e;font-size:7px;color:#33494d}.world-levels{display:grid;gap:5px}.world-node{display:grid;grid-template-columns:25px 1fr auto;align-items:center;text-align:left;padding:6px 7px;background:#244d56;color:#f5e8c6;border:2px solid #173841}.world-node b{color:#f0c65b}.world-node span{font-size:8px}.world-node small{font-size:6px;color:#9dd7cf}.world-node.playable{border-color:#d49b3f;box-shadow:0 0 0 2px #f5db8f55}.world-node:disabled{opacity:.46;cursor:not-allowed}.world-bonuses{display:flex;gap:5px;margin-top:7px}.bonus-node{flex:1;padding:6px 4px;background:#856747;color:#f7e8bd;border:1px dashed #553e2b;font-size:6px}.campaign-tease{color:#d4b26d;font-size:8px;letter-spacing:2px;margin:10px 0 2px}
+@media(max-width:720px){.chart-table{padding:12px;height:96%;overflow:auto}.map-heading h2{font-size:28px}.map-body{grid-template-columns:1fr;height:auto}.world-islands{min-height:220px}.world-details{min-height:220px}.world-island span{font-size:6px}}
+@media(max-height:650px) and (pointer:coarse){.chart-table{width:98%;height:98%;padding:9px 11px}.map-heading{padding-bottom:5px}.map-heading h2{font-size:25px}.map-body{grid-template-columns:1.1fr .9fr;height:calc(100% - 50px);padding-top:7px}.world-islands{min-height:0;gap:6px;padding:5px}.world-details{min-height:0;padding:9px}.world-details h3{font-size:22px}.world-node{padding:4px}.world-bonuses{display:none}}
+
+/* Campaign chart components */
+.world-island:before{background:var(--world-color);opacity:.9}
+.world-island.uncharted{filter:saturate(.55);opacity:.78}
+.world-island .island-shape{font-size:25px;line-height:1;color:#fff4c5}
+.world-label{display:flex;flex-direction:column;align-items:center;max-width:105px}
+.world-label small{font-size:6px;color:#f9edc8}
+.world-label strong{font:12px/1.05 'Changa One';color:#fff8d7}
+.world-label em{font:5px/1.2 'DM Mono';color:#d5fff1;font-style:normal;margin-top:3px}
+.world-island .boat{display:none;position:absolute;right:2px;bottom:0;font-size:18px;filter:drop-shadow(1px 2px #17313a)}
+.world-island.selected .boat{display:block}
+.level-node{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;text-align:left;padding:7px 8px;background:#244d56;color:#f5e8c6;border:2px solid #173841}
+.level-node span{grid-row:1/3;font:9px 'DM Mono';color:#f0c65b}
+.level-node strong{font:10px/1.1 'Changa One';letter-spacing:.2px}
+.level-node small{font:6px/1.2 'DM Mono';color:#9dd7cf;margin-top:2px}
+.level-node.playable{border-color:#d49b3f;box-shadow:0 0 0 2px #f5db8f55}
+.level-node.cleared small{color:#f0c65b}
+.level-node:disabled{opacity:.55;cursor:not-allowed}
+.bonus-node{display:flex;gap:5px;align-items:center}
+.bonus-node strong,.bonus-node small{display:block}
+.bonus-node small{font-size:5px;color:#e6d39d;margin-top:2px}
