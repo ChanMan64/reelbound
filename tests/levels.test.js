@@ -3,3 +3,4 @@ test('five substantial voyages',()=>{assert.equal(LEVELS.length,5);for(const l o
 test('eight permanent lure definitions are unique',()=>{assert.equal(LURES.length,8);assert.equal(new Set(LURES.map(l=>l.id)).size,8);for(const l of LURES)assert.ok(l.name&&l.desc&&l.color)});
 test('main routes do not declare required lures',()=>{for(const l of LEVELS){assert.equal(l.requiredLure,undefined);assert.ok(l.lurePickups.length>=1);assert.ok(l.secrets.length>=3)}});
 test('every voyage has unique art, fish, and music',()=>{assert.equal(new Set(LEVELS.map(l=>l.bg)).size,5);assert.equal(new Set(LEVELS.map(l=>l.fish)).size,5);assert.equal(new Set(LEVELS.map(l=>l.music)).size,5)});
+test('opening voyages introduce the iconic enemy cast',()=>{const harbor=new Set(LEVELS[0].enemies.map(e=>e[2]));const grotto=new Set(LEVELS[1].enemies.map(e=>e[2]));assert.deepEqual(harbor,new Set(['skipper','clackett']));assert.deepEqual(grotto,new Set(['glowgulp']))});
